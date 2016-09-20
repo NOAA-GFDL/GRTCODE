@@ -54,7 +54,7 @@ You should place this folder somewhere handy that is readable by GRTCODE during 
 Included are some example atmos input files.
 
 * AllForc_jan21981rad_19820103met.atmos_rfm.nc is a global atmos example file used during testing and validation with RFM.
-* smallSubset_2t is a 2time x 2lat x 2lon slice of columns from the prior file.
+* smallSubset_2t.nc is a 2time x 2lat x 2lon slice of columns from the prior file.
 * mls.nc is a stub for a Mid-Lattitude-Summer reference.
 
 If you structure your input similarly to these, and with the correct units, grtcode should eat them.  You can for example, create a file with 1 time, 1 lat, and 1 lon and N levels to compute a single column.  Note that the netcdf parsing code does expect these dimensions.
@@ -63,9 +63,11 @@ If you structure your input similarly to these, and with the correct units, grtc
 
 The --help menu should have adequate descriptions, but below are example calls that cover common options.  Example input atmos files should live in INPUT/ and you are free to create your own in their image.  HITRAN data file locations can be specified.  Additionally you can customize the HITRAN files by adding removing lines (record rows), which would allow you to compute shapes for single lines etc.
 
-Computes optical depths for HITRAN molecule number 02 (CO2),  with a global concentration of 400ppmv (converted to ATM via 400/1million = 0.000400 ) from wavenumbers [500,800] on the host at a high resolution of 0.0005 wavenumber.
+It is recomended that while figuring out how to pass the flags you would like that you use a small file like the provided smallSubset_2t.nc ...
 
-./grtcode.x -a MYATMOSINPUT.nc -o myco2.nc HITRANFILEPATH/02_hit12.par -20.0004 -w500 -W800 -h -r0.0005
+Computes optical depths for HITRAN molecule number 02 (CO2),  with a global concentration of 400ppmv (converted to ATM via 400/1million = 0.000400 ) from wavenumbers [500,800] on the host at a higher resolution of 0.01 wavenumber.
+
+./grtcode.x -a MYATMOSINPUT.nc -o myco2.nc HITRANFILEPATH/02_hit12.par -20.0004 -w500 -W800 -h -r0.01
 
 Computes optical depths for HITRAN molecule number 03 (O3), with atmospheric concentrations specified in the MYATMOSINPUT.nc file from (default) longwave wavenumbers [1 , 3000] on the (default) device for eight time levels [0,7].
 
