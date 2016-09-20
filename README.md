@@ -17,7 +17,9 @@ Currently GRTCODE uses a numerically approximated Voigt profile, although code f
     * typically a yum/apt-get install of netcdf and netcdf-dev(el) has been sufficient.  OSX should read that section.
 * GNU libargp is currently required to handle to complexity of arguments, although you can easily find the source on the web and make it here.
 
-TIP: HPC users with certain Module enviornments may be able to use a commands like `module load netcdf` for some depends, ymwv.
+#### TIP: 
+
+HPC users with certain Module enviornments may be able to use a commands like `module load netcdf` for some depends, ymwv.  To simplify these unique platforms, there are example env files as cshrc files which could be used at their respective sites, or altered to fit your needs.
 
 #### Optional
 
@@ -44,6 +46,8 @@ make -f Makefile.port
 The application was setup to consume "database" files directly from the HITRAN molecular database.  For convenience, the files I used (from HITRAN) are stored here in a public repo:
 
 https://gitlab.com/geebdubya/HITFILES
+
+You should place this folder somewhere handy that is readable by GRTCODE during runtime.  You will use this path when you need to specify the HITRAN inputs.
 
 ### Input Atmosphere
 
