@@ -2035,29 +2035,30 @@ int main(int argc, char* argv[]){
     OUTPUT_FNAME = (char*)malloc(strlen(arguments.output_file) + 9);
     if(OUTPUT_FNAME ==NULL)
     {
-      lat = atmosData.nlat / world_size;
-      if(lat*world_size != atmosData.nlat)
-      {
-        fprintf(stderr, "Warning:"
-                "\n\tSpecified %d global lats across ranks=%zu yields between %d and %d lats per rank.  "
-                "\n\tThis will result in idle hardware, suggest a different work share.\n",
-                world_size,
-                atmosData.nlat,
-                lat,
-                lat+1);
-      }
-      compute_lat_beg = world_rank*lat;
-      compute_lat_end = compute_lat_beg+lat;
-      if( compute_lat_end>atmosData.nlat)
-      {
-        compute_lat_end = atmosData.nlat;
-      }
-      compute_lon_beg = 0;
-      compute_lon_end = atmosData.nlon;
       fprintf(stderr, "Malloc failed for %zu bytes of OUTPUTFNAME!\n",
               strlen(arguments.output_file) + 9);
       exit(EXIT_FAILURE);
     }
+    
+    lat = atmosData.nlat / world_size;
+    if(lat*world_size != atmosData.nlat)
+    {
+      fprintf(stderr, "Warning:"
+	      "\n\tSpecified %d global lats across ranks=%zu yields between %d and %d lats per rank.  "
+	      "\n\tThis will result in idle hardware, suggest a different work share.\n",
+	      world_size,
+	      atmosData.nlat,
+	      lat,
+	      lat+1);
+    }
+    compute_lat_beg = world_rank*lat;
+    compute_lat_end = compute_lat_beg+lat;
+    if( compute_lat_end>atmosData.nlat)
+    {
+      compute_lat_end = atmosData.nlat;
+    }
+    compute_lon_beg = 0;
+    compute_lon_end = atmosData.nlon;
     /* copy existing name
      * cat .rankN */
     sprintf(OUTPUT_FNAME, "%s.rank%d", arguments.output_file, world_rank);
@@ -2174,7 +2175,14 @@ int main(int argc, char* argv[]){
         fprintf(stderr, "Writing hyperslab of %d samples "
                 "@{t=%d, lat=%d, lon=%d, layers=0:%d} to output file %s \n",
               nF, time, lat, lon, numLayers, OUTPUT_FNAME);
-        writeOpticalDepthOutputByColumn(ncid, varid, time, lat, lon, numLayers, nF, out);
+        writeOpticalDepthOutputByColumn(ncid,
+					varid,
+					time,
+					lat-compute_lat_beg,
+					lon-compute_lon_beg,
+					numLayers,
+					nF,
+					out);
 
         memset(out, 0, nF*numLayers*sizeof(REAL_t));
         
