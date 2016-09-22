@@ -22,6 +22,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include <assert.h>
 #include <argp.h>
 
@@ -57,8 +58,8 @@ static char doc[] = "GFDL style documentation goes >/\n\n\\"
     "<^here.\n\v"
     "Other Documentation goes here.";
 /* A description of the arguments we accept. */
-static const unsigned int minNhitfiles = 1;
-static const unsigned int maxNhitfiles = NUM_MOL;
+#define minNhitfiles 1
+#define maxNhitfiles NUM_MOL
 static const unsigned int minNargs=minNhitfiles;
 static const unsigned int maxNargs=maxNhitfiles;
 static char args_doc[] = "-aINPUT.nc -oOUT.nc [molecule concentration specifications] HITFILES";
@@ -351,7 +352,7 @@ static void setGlobalNumberDensity(REAL_t* const N,    /* molecules/cm^3 */
   }
 }
 
-static void checkMolConfig(arguments* args,
+static void checkMolConfig(struct arguments* args,
                            const unsigned int molid,
                            radiationOutputFields_t* atmosData,
                            const int time)
@@ -1209,7 +1210,7 @@ int host_launch(const unsigned int numMols,
                 /* char**  molFnames, */
                 RefLinePtrs_t L[],
                 const REAL_t loWn,
-                const REAL_t hiWn,
+                /* const REAL_t hiWn, */
                 const unsigned int nF,
                 const REAL_t resolution,
                 const unsigned int wingBreadth,
@@ -1730,7 +1731,7 @@ __host__ int device_launch(int* nStreams,
                            const unsigned int numMols,
                            RefLinePtrs_t L[],
                            const REAL_t loWn,
-                           const REAL_t hiWn,
+                           /* const REAL_t hiWn, */
                            const unsigned int nF,
                            const REAL_t resolution,
                            const unsigned int wingBreadth,
@@ -1867,11 +1868,11 @@ __host__ int device_launch(int* nStreams,
 
 #else
 int device_launch(int* nStreams,
-                  cudaStream_t** streams,
+                  void** streams,
                   const unsigned int numMols,
                   const char* const molFnames[],
                   const REAL_t loWn,
-                  const REAL_t hiWn,
+                  /* const REAL_t hiWn, */
                   const unsigned int nF,
                   const REAL_t resolution,
                   const unsigned int wingBreadth,
@@ -1881,6 +1882,20 @@ int device_launch(int* nStreams,
                   int lat,
                   int lon)
 {
+  /* shut these wwarnings down */
+  (void) nStreams;
+  (void) streams;
+  (void) numMols;
+  (void) molFnames;
+  (void) loWn;
+  (void) nF;
+  (void) resolution;
+  (void) wingBreadth;
+  (void) atmosData;
+  (void) out;
+  (void) time;
+  (void) lat;
+  (void) lon;
   printf("\n\nYou've not compiled with NVCC, device_launch does nothing...\n\n");
   return -1;
 }
@@ -1987,12 +2002,12 @@ int main(int argc, char* argv[]){
     fprintf(stderr, "You have not built with MPI or set MPI_ENABLED\n");
     exit(EXIT_SUCCESS);
   }      
-  const int device_number = arguments.device;
 #endif
   
   if (launchType == 1)
   {
 #ifdef __NVCC__
+    const int device_number = arguments.device;
     HANDLE_ERROR( cudaSetDevice(device_number) );
 #endif
   }
@@ -2106,7 +2121,7 @@ int main(int argc, char* argv[]){
                        /* hitFnameList, */
                        HitLines,
                        ((REAL_t)arguments.w),
-                       ((REAL_t)arguments.W),
+                       /* ((REAL_t)arguments.W), */
                        nF,
                        arguments.res,
                        arguments.wingBreadth,
@@ -2130,7 +2145,7 @@ int main(int argc, char* argv[]){
                          /* hitFnameList, */
                          HitLines,
                          ((REAL_t)arguments.w),
-                         ((REAL_t)arguments.W),
+                         /* ((REAL_t)arguments.W), */
                          nF,
                          arguments.res,
                          arguments.wingBreadth,
