@@ -1,0 +1,20 @@
+language: cpp
+os: linux
+dist: bionic
+arch: amd64
+
+addons:
+  apt_packages:
+    - libnetcdf-dev
+
+jobs:
+  include:
+    - name: "Basic c build"
+      env: OMP_NUM_THREADS="4"
+      script:
+        - autoreconf --install
+        - ./configure CFLAGS="-std=c99 -Wall -Wextra -pedantic -Wno-unknown-pragmas -g -O3 -fopenmp" LDFLAGS="-fopenmp"
+        - make
+        - ./download-test-data
+        - tar xvfz grtcode-data.tar.gz
+        - travis_wait 60 make check

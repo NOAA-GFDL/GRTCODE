@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/NOAA-GFDL/GRTCODE.svg?branch=master)](https://travis-ci.org/NOAA-GFDL/GRTCODE)
+
 # GPU-able Radiative Transfer code (GRTCODE)
 Fork of [GRTCODE](https://gitlab.com/geebdubya/GRTCODE)
 originally written by Garret Wright ([![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.3451457.svg)](https://doi.org/10.5281/zenodo.3451457)).

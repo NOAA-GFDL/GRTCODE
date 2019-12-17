@@ -39,7 +39,7 @@
         char b_[1024]; \
         grtcode_errstr(e_, b_, 1024); \
         fprintf(stderr, "[%s, %d] Error:\n", __FILE__, __LINE__); \
-        fprintf(stderr, b_); \
+        fprintf(stderr, "%s", b_); \
         return EXIT_FAILURE; \
     }}
 #ifndef M_PI
