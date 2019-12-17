@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/NOAA-GFDL/GRTCODE.svg?branch=master)](https://travis-ci.org/NOAA-GFDL/GRTCODE)
+[![Build Status](https://travis-ci.com/NOAA-GFDL/GRTCODE.svg?branch=master)](https://travis-ci.com/NOAA-GFDL/GRTCODE)
 
 # GPU-able Radiative Transfer code (GRTCODE)
 Fork of [GRTCODE](https://gitlab.com/geebdubya/GRTCODE)
