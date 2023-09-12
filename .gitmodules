@@ -1,3 +1,0 @@
-[submodule "dependencies/clouds-lib"]
-	path = dependencies/clouds-lib
-	url = https://github.com/menzel-gfdl/clouds-lib.git

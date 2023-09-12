@@ -1,0 +1,147 @@
+INCLUDES = -I../utilities/src -I../gas-optics/src -I../shortwave/src -I../longwave/src -I../clouds -I../framework/src -I../era5/src
+CXX_COMPILE = $(CXX) $(CPPFLAGS) $(CFLAGS) $(INCLUDES)
+MPICXX_COMPILE = $(MPICXX) $(CPPFLAGS) $(CFLAGS) $(INCLUDES)
+
+all: libargparse.a libgrtcode_utilities.a libgas_optics.a \
+     libshortwave.a liblongwave.a libclouds.a libera5.a era5.x
+
+libargparse.a: argparse.o
+	ar -rcs -o $@ $^
+
+argparse.o: ../utilities/src/argparse.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+libgrtcode_utilities.a: curtis_godson.o device.o optics.o parse_csv.o \
+                        spectral_grid.o utilities.o verbosity.o
+	ar -rcs -o $@ $^
+
+curtis_godson.o: ../utilities/src/curtis_godson.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+device.o: ../utilities/src/device.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+optics.o: ../utilities/src/optics.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+parse_csv.o: ../utilities/src/parse_csv.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+spectral_grid.o: ../utilities/src/spectral_grid.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+utilities.o: ../utilities/src/utilities.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+verbosity.o: ../utilities/src/verbosity.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+libgas_optics.a: cfcs.o collision_induced_absorption.o gas_optics.o kernel_utils.o \
+                 kernels.o launch.o molecules.o ozone_continuum.o \
+                 parse_HITRAN_file.o RFM_voigt.o spectral_bin.o tips2017.o \
+                 water_vapor_continuum.o
+	ar -rcs -o $@ $^
+
+cfcs.o: ../gas-optics/src/cfcs.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+collision_induced_absorption.o: ../gas-optics/src/collision_induced_absorption.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+gas_optics.o: ../gas-optics/src/gas_optics.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+kernel_utils.o: ../gas-optics/src/kernel_utils.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+kernels.o: ../gas-optics/src/kernels.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+launch.o: ../gas-optics/src/launch.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+molecules.o: ../gas-optics/src/molecules.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+ozone_continuum.o: ../gas-optics/src/ozone_continuum.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+parse_HITRAN_file.o: ../gas-optics/src/parse_HITRAN_file.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+RFM_voigt.o: ../gas-optics/src/RFM_voigt.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+spectral_bin.o: ../gas-optics/src/spectral_bin.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+tips2017.o: ../gas-optics/src/tips2017.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+water_vapor_continuum.o: ../gas-optics/src/water_vapor_continuum.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+libshortwave.a: disort_shortwave.o rayleigh.o shortwave.o solar_flux.o
+	ar -rcs -o $@ $^
+
+disort_shortwave.o: ../shortwave/src/disort_shortwave.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+rayleigh.o: ../shortwave/src/rayleigh.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+shortwave.o: ../shortwave/src/shortwave.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+solar_flux.o: ../shortwave/src/solar_flux.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+liblongwave.a: longwave.o
+	ar -rcs -o $@ $^
+
+longwave.o: ../longwave/src/longwave.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+libclouds.a: liquid_cloud_optics.o ice_cloud_optics.o incomplete_beta.o \
+             netcdf_utils.o stochastic_clouds.o cloud_utils.o cloud_optics.o
+	ar -rcs -o $@ $^
+
+liquid_cloud_optics.o: ../clouds/liquid_cloud_optics.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+ice_cloud_optics.o: ../clouds/ice_cloud_optics.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+incomplete_beta.o: ../clouds/incomplete_beta.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+netcdf_utils.o: ../clouds/netcdf_utils.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+stochastic_clouds.o: ../clouds/stochastic_clouds.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+cloud_utils.o: ../clouds/cloud_utils.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+cloud_optics.o: ../clouds/cloud_optics.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+libera5.a: era5.o
+	ar -rcs -o $@ $^
+
+era5.o: ../era5/src/era5.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+distribute.o: ../framework/src/distribute.c
+	$(MPICXX_COMPILE) -o $@ -c $<
+
+driver.o: ../framework/src/driver.c
+	$(CXX_COMPILE) -fopenmp -o $@ -c $<
+
+era5.x: driver.o distribute.o libera5.a libclouds.a liblongwave.a libshortwave.a \
+        libgas_optics.a libgrtcode_utilities.a libargparse.a
+	$(MPICXX) -fopenmp -o $@ $(LDFLAGS) $(NVCCLDFLAGS) $^ -lnetcdf -lcudart $(RPATH)
+
+clean:
+	rm -f *.o *.a *.x

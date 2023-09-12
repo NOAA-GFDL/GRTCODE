@@ -1,0 +1,5 @@
+#!/bin/bash -e
+
+source env.sh
+cd bld
+CC="${CC}" CPPFLAGS="${CPPFLAGS}" CFLAGS="${CFLAGS}" CXX="${CXX}" CXXFLAGS="${CXXFLAGS}" LDFLAGS="${LDFLAGS}" NVCC="${NVCC}" NVCCFLAGS="${NVCCFLAGS}" NVCCLDFLAGS="${NVCCLDFLAGS}" MPICC="${MPICC}" MPICXX="${MPICXX}" make -f ../Makefile-gpu

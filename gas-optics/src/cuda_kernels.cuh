@@ -166,8 +166,9 @@ __global__ void calc_optical_depth_line_sample_d(uint64_t const num_lines, /*Num
                                                  fp_t const * const n, /*Integrated number density
                                                                          [cm^-2] (layers).*/
                                                  SpectralBins_t const bins, /*Spectral bins.*/
-                                                 fp_t * const tau /*Optical depth (layer,wavenumber).*/
-                                                );
+                                                 fp_t * const tau, /*Optical depth (layer,wavenumber).*/
+                                                 fp_t const *  pedestal_lower_bound,
+                                                 fp_t const *  pedestal_upper_bound);
 
 
 /** @brief Calculate the optical depth contribution of the water vapor

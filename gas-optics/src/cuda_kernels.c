@@ -498,7 +498,9 @@ __global__ void calc_optical_depth_line_sample_d(uint64_t const num_lines, int c
                                                  fp_t * const vnn, fp_t * const snn,
                                                  fp_t * const gamma, fp_t * const alpha,
                                                  fp_t const * const n, SpectralBins_t const bins,
-                                                 fp_t * const tau)
+                                                 fp_t * const tau,
+                                                 fp_t const * pedestal_lower_bound,
+                                                 fp_t const * pedestal_upper_bound)
 {
     uint64_t j = blockIdx.x*blockDim.x + threadIdx.x;
     if (j < num_lines)

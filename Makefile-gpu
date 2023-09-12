@@ -1,0 +1,175 @@
+INCLUDES = -I../utilities/src -I../gas-optics/src -I../shortwave/src -I../longwave/src -I../clouds -I../framework/src -I../era5/src
+CXX_COMPILE = $(CXX) $(CPPFLAGS) $(CFLAGS) $(INCLUDES)
+MPICXX_COMPILE = $(MPICXX) $(CPPFLAGS) $(CFLAGS) $(INCLUDES)
+CUDA_COMPILE = $(NVCC) $(NVCCFLAGS) -lineinfo -x cu -dc -ccbin $(CXX) --compiler-options="$(INCLUDES) $(CPPFLAGS) $(CFLAGS)"
+CUDA_LINK = $(NVCC) -dlink
+
+all: libargparse.a libgrtcode_utilities.a libgas_optics.a \
+     libshortwave.a liblongwave.a libclouds.a libera5.a era5.x
+
+libargparse.a: argparse.o
+	ar -rcs -o $@ $^
+
+argparse.o: ../utilities/src/argparse.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+libgrtcode_utilities.a: curtis_godson.o device.o optics.o parse_csv.o \
+                        spectral_grid.o utilities.o verbosity.o \
+                        grtcode_utilities_gpu.o
+	ar -rcs -o $@ $^
+
+grtcode_utilities_gpu.o: curtis_godson.o device.o optics.o parse_csv.o \
+                         spectral_grid.o utilities.o verbosity.o
+	$(CUDA_LINK) -o $@ $^
+
+curtis_godson.o: ../utilities/src/curtis_godson.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+device.o: ../utilities/src/device.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+optics.o: ../utilities/src/optics.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+parse_csv.o: ../utilities/src/parse_csv.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+spectral_grid.o: ../utilities/src/spectral_grid.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+utilities.o: ../utilities/src/utilities.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+verbosity.o: ../utilities/src/verbosity.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+libgas_optics.a: cfcs.o collision_induced_absorption.o gas_optics.o kernel_utils.o \
+                 kernels.o launch.o molecules.o ozone_continuum.o \
+                 parse_HITRAN_file.o RFM_voigt.o spectral_bin.o tips2017.o \
+                 water_vapor_continuum.o cuda_kernels.o gas_optics_gpu.o
+	ar -rcs -o $@ $^
+
+gas_optics_gpu.o: cfcs.o collision_induced_absorption.o gas_optics.o kernel_utils.o \
+                  kernels.o launch.o molecules.o ozone_continuum.o \
+                  parse_HITRAN_file.o RFM_voigt.o spectral_bin.o tips2017.o \
+                  water_vapor_continuum.o cuda_kernels.o
+	$(CUDA_LINK) -o $@ $^
+
+cfcs.o: ../gas-optics/src/cfcs.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+collision_induced_absorption.o: ../gas-optics/src/collision_induced_absorption.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+gas_optics.o: ../gas-optics/src/gas_optics.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+kernel_utils.o: ../gas-optics/src/kernel_utils.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+kernels.o: ../gas-optics/src/kernels.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+launch.o: ../gas-optics/src/launch.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+molecules.o: ../gas-optics/src/molecules.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+ozone_continuum.o: ../gas-optics/src/ozone_continuum.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+parse_HITRAN_file.o: ../gas-optics/src/parse_HITRAN_file.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+RFM_voigt.o: ../gas-optics/src/RFM_voigt.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+spectral_bin.o: ../gas-optics/src/spectral_bin.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+tips2017.o: ../gas-optics/src/tips2017.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+water_vapor_continuum.o: ../gas-optics/src/water_vapor_continuum.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+cuda_kernels.o: ../gas-optics/src/cuda_kernels.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+libshortwave.a: disort_shortwave.o rayleigh.o shortwave.o solar_flux.o shortwave_gpu.o
+	ar -rcs -o $@ $^
+
+shortwave_gpu.o: disort_shortwave.o rayleigh.o shortwave.o solar_flux.o
+	$(CUDA_LINK) -o $@ $^
+
+disort_shortwave.o: ../shortwave/src/disort_shortwave.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+rayleigh.o: ../shortwave/src/rayleigh.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+shortwave.o: ../shortwave/src/shortwave.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+solar_flux.o: ../shortwave/src/solar_flux.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+liblongwave.a: longwave.o longwave_gpu.o
+	ar -rcs -o $@ $^
+
+longwave_gpu.o: longwave.o
+	$(CUDA_LINK) -o $@ $^
+
+longwave.o: ../longwave/src/longwave.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+libclouds.a: liquid_cloud_optics.o ice_cloud_optics.o incomplete_beta.o \
+             netcdf_utils.o stochastic_clouds.o cloud_utils.o cloud_optics.o \
+             clouds_gpu.o
+	ar -rcs -o $@ $^
+
+clouds_gpu.o: liquid_cloud_optics.o ice_cloud_optics.o incomplete_beta.o \
+              netcdf_utils.o stochastic_clouds.o cloud_utils.o cloud_optics.o
+	$(CUDA_LINK) -o $@ $^
+
+liquid_cloud_optics.o: ../clouds/liquid_cloud_optics.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+ice_cloud_optics.o: ../clouds/ice_cloud_optics.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+incomplete_beta.o: ../clouds/incomplete_beta.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+netcdf_utils.o: ../clouds/netcdf_utils.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+stochastic_clouds.o: ../clouds/stochastic_clouds.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+cloud_utils.o: ../clouds/cloud_utils.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+cloud_optics.o: ../clouds/cloud_optics.c
+	$(CUDA_COMPILE) -o $@ -c $<
+
+libera5.a: era5.o
+	ar -rcs -o $@ $^
+
+era5.o: ../era5/src/era5.c
+	$(CXX_COMPILE) -o $@ -c $<
+
+distribute.o: ../framework/src/distribute.c
+	$(MPICXX_COMPILE) -o $@ -c $<
+
+driver.o: ../framework/src/driver.c
+	$(CXX_COMPILE) -fopenmp -o $@ -c $<
+
+era5.x: driver.o distribute.o libera5.a libclouds.a liblongwave.a libshortwave.a \
+        libgas_optics.a libgrtcode_utilities.a libargparse.a
+	$(MPICXX) -fopenmp -o $@ $(LDFLAGS) $(NVCCLDFLAGS) $^ -lnetcdf -lcudart $(RPATH)
+#	$(NVCC) -o $@ $(NVCCLDFLAGS) --linker-options="$(LDFLAGS)" $^ -lnetcdf
+
+clean:
+	rm -f *.o *.a *.x

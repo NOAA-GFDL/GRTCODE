@@ -486,6 +486,7 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
     {
         /*Constants.*/
         double const gas_constant = 8.314462; /*[J mol-1 K-1].*/
+        double const gravity = 9.81; /*[m s-2].*/
         double const kg_per_g = 1./1000.; /*[kg g-1].*/
         double const molar_mass = 28.9647; /*[g mol-1].*/
         double const pa_per_mb = 100.; /*[Pa mb-1].*/
@@ -496,7 +497,7 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
         for (i=0; i<atm.num_times*atm.num_columns*atm.num_layers; ++i)
         {
             air_density[i] = (atm.layer_pressure[i]*pa_per_mb*molar_mass*kg_per_g)/
-                             (atm.layer_temperature[i]*gas_constant);
+                             (atm.layer_temperature[i]*gas_constant); /*[kg m-3].*/
         }
 
         /*Read in the cloud properties.*/
@@ -530,7 +531,7 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
             }
             else
             {
-                atm.ice_water_content[i] *= air_density[i]*g_per_kg;
+                atm.ice_water_content[i] *= air_density[i]*g_per_kg; /*[g m-3].*/
             }
         }
         alloc(atm.liquid_water_content, atm.num_times*atm.num_columns*atm.num_layers, fp_t *);
@@ -548,7 +549,7 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
             }
             else
             {
-                atm.liquid_water_content[i] *= air_density[i]*g_per_kg;
+                atm.liquid_water_content[i] *= air_density[i]*g_per_kg; /*[g m-3].*/
             }
         }
         free(air_density);
@@ -567,13 +568,13 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
                     fp_t const *plev = &(atm.level_pressure[offset]);
                     offset = atm.num_layers*(i*nlat*nlon + j*nlon + k);
                     fp_t const *tlay = &(atm.layer_temperature[offset]);
-                    double const gravity = 9.81; /*[m s-2].*/
                     int m;
                     for (m=0; m<atm.num_layers; ++m)
                     {
-                        atm.layer_thickness[offset+m] = (fabs(log(plev[m]) - log(plev[m+1]))*
+                        atm.layer_thickness[offset+m] = (fabs(log(plev[m]*pa_per_mb) -
+                                                              log(plev[m+1]*pa_per_mb))*
                                                         tlay[m]*gas_constant)/
-                                                        (molar_mass*kg_per_g*gravity);
+                                                        (molar_mass*kg_per_g*gravity); /*[m].*/
                     }
                 }
             }
