@@ -314,13 +314,15 @@ static int driver(Atmosphere_t const atm, /*Atmospheric state.*/
         free(buffer);
 
         /*Run calculate on for columns this rank is responsible for.*/
-#pragma omp parallel for num_threads(num_gpus) default(shared)
+#pragma omp parallel for if(device[0] != HOST_ONLY) num_threads(num_gpus) default(shared)
         for (i=col_s; i<col_e; ++i)
         {
-#ifdef _OPENMP
-            int id = omp_get_thread_num();
-#else
             int id = 0;
+#ifdef _OPENMP
+            if (device[0] != HOST_ONLY)
+            {
+                id = omp_get_thread_num();
+            }
 #endif
             /*Thread specific buffers for output.*/
             fp_t * lw_flux_up = (fp_t *)malloc(sizeof(*lw_flux_up)*atm.num_levels*lw_grid.n);
