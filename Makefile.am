@@ -1,2 +1,2 @@
-SUBDIRS = utilities gas-optics cloud-optics shortwave longwave rfmip-irf circ fortran-bindings
+SUBDIRS = utilities gas-optics shortwave longwave fortran-bindings
 dist_doc_DATA = README.md

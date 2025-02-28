@@ -1,4 +1,4 @@
-AM_CPPFLAGS = -I${top_builddir}/utilities/src
+AM_CPPFLAGS = -I${top_srcdir}/utilities/src
 if USE_SINGLE_PRECISION
 AM_CPPFLAGS += -DSINGLE_PRECISION
 endif

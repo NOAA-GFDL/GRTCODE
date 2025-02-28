@@ -1,0 +1,17 @@
+#!/bin/bash -e
+
+source /opt/cray/pe/modules/3.2.11.4/init/bash
+module load cray-netcdf cray-hdf5
+
+netcdf_include="/opt/cray/pe/netcdf/4.6.3.2/INTEL/19.0/include"
+netcdf_libs="/opt/cray/pe/netcdf/4.6.3.2/INTEL/19.0/lib"
+
+cd dependencies/clouds-lib
+autoreconf -i
+./configure CC=cc CPPFLAGS="-I${netcdf_include}" CFLAGS="-g -O2" LDFLAGS="-dynamic -L${netcdf_libs}" FC=ftn FCFLAGS="-g -O2 -I${netcdf_include}"
+make
+cd -
+
+autoreconf -i
+./configure CC=cc CPPFLAGS="-I${netcdf_include}" CFLAGS="-g -O2 -qopenmp" CXX=CC CXXFLAGS="-g -O2 -qopenmp" LDFLAGS="-dynamic -L${netcdf_libs}"
+make

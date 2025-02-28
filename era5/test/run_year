@@ -1,0 +1,95 @@
+#!/bin/bash -x
+#SBATCH --nodes=6
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=32
+#SBATCH --clusters=c3
+#SBATCH --time=720
+#SBATCH -J grtcode-global-era5
+#SBATCH -A gfdl_m
+#SBATCH -o grtcode-global-era5-%j.out
+#SBATCH --partition=batch
+
+
+#Handle command line arguments.
+arglist="$0 [-h|--help] year"
+counter=0
+while [[ $# -gt 0 ]]; do
+  key="$1"
+  case $key in
+    -h|--help)
+      echo "$arglist"
+      echo "\nPositional arguments:"
+      echo "year:          Year to run."
+      echo "\nOptional arguments:"
+      echo "-h, --help:    Print this message."
+      exit 0
+    ;;
+    *)
+      counter=$((counter+1))
+      if [[ "$key" =~ ([0-9][0-9][0-9][0-9]) ]]; then
+        year="${BASH_REMATCH[1]}"
+      else
+        echo "Error: year must be a four digit integer"
+        exit 1
+      fi
+      shift
+    ;;
+  esac
+done
+if [ "$counter" -ne "1" ]; then
+  echo "Error: incorrect number of arguments."
+  echo "usage: $arglist"
+  exit 1
+fi
+
+#Set up environment and directories.
+source /opt/cray/pe/modules/3.2.11.4/init/bash
+module load cray-netcdf
+module load cray-hdf5
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$PWD/../../dependencies/clouds-lib/.libs"
+declare basedir="/lustre/f2/dev/gfdl/Raymond.Menzel/grtcode-era5/GRTCODE"
+source $basedir/era5/test/env/bin/activate
+export OMP_NUM_THREADS="32"
+declare basename="output.era5.nc"
+declare datadir="${basedir}/grtcode-data"
+declare eradatadir="/lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/era5-prp"
+declare -a months=("january" "february" "march" "april" "may" "june" "july" "august" "september" "october" "november" "december")
+declare resultsdir="/lustre/f2/dev/gfdl/$USER/grtcode-era5/results"
+declare workdir="/lustre/f2/scratch/gfdl/$USER/work/grtcode-era5"
+mkdir -p $resultsdir
+mkdir -p $workdir
+cd $workdir
+
+for month in `seq 0 11`; do
+  for i in `seq 1 6`; do
+    x=$((($i - 1)*24))
+    X=$(($x + 23))
+    time srun -n 1 --cpus-per-task="$OMP_NUM_THREADS" $basedir/era5/src/era5 \
+      $datadir/HITRAN_files/hitran2016.par \
+      $datadir/solar_flux/solar_flux.csv -v \
+      $eradatadir/2010-era5.nc \
+      /lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/green-house-gases.nc \
+      -beta-path /lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/clouds/beta_distribution.nc \
+      -ice-path /lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/clouds/chou_suarez.nc \
+      -liquid-path /lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/clouds/hu_stamnes.nc \
+      -H2O -O3 -CH4 -CO2 -N2O -year $year \
+      -h2o-ctm $datadir/water_vapor_continuum \
+      -o3-ctm $datadir/ozone_continuum/ozone_continuum.csv \
+      -CFC-11 $datadir/cfc_cross_sections/CFC-11_absorption_cross_sections.csv \
+      -CFC-12 $datadir/cfc_cross_sections/CFC-12_absorption_cross_sections.csv \
+      -CFC-113 $datadir/cfc_cross_sections/CFC-113_absorption_cross_sections.csv \
+      -HCFC-22 $datadir/cfc_cross_sections/HCFC-22_absorption_cross_sections.csv \
+      -N2-N2 $datadir/collision_induced_absorption/N2-N2.csv \
+      -O2-N2 $datadir/collision_induced_absorption/O2-N2.csv \
+      -O2-O2 $datadir/collision_induced_absorption/O2-O2.csv \
+      -o "${year}.${month}.${basename}.segment${i}" \
+      -w-lw 1 -W-lw 3000 -r-lw 1.0 \
+      -x $x -X $X -t $month -T $month &
+  done
+  wait
+  python3 $basedir/era5/test/combine-segments.py ${year}.${month}.${basename} ${year}-${months[$month]}-era5-spectra.nc
+  mv ${year}-${months[$month]}-era5-spectra.nc $resultsdir
+  for i in `seq 1 6`; do
+    rm "${year}.${month}.${basename}.segment${i}"
+  done
+done

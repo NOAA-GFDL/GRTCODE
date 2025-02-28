@@ -54,7 +54,7 @@ EXTERN int create_spectral_grid(SpectralGrid_t * const grid, double const w0, do
     not_null(grid);
     in_range(w0, MIN_WAVENUMBER, MAX_WAVENUMBER);
     grid->w0 = w0;
-    in_range(wn, w0, MAX_WAVENUMBER);
+    in_range(wn, w0 + epsilon_, MAX_WAVENUMBER);
     grid->wn = wn;
     in_range(dw, MIN_RESOLUTION, MAX_RESOLUTION);
     grid->dw = dw;

@@ -423,7 +423,7 @@ static int sw_fluxes_kernel(int const num_levels, /*Number of atmospheric pressu
                            )
 {
     uint64_t i;
-#pragma omp parallel for schedule(static) default(none) private(i)
+#pragma omp parallel for schedule(static) default(shared) private(i)
     for (i=0; i<num_wpoints; ++i)
     {
         fp_t omega_buf[MAX_NUM_LEVELS];

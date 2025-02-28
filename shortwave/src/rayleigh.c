@@ -54,7 +54,7 @@ static int rayleigh(int const num_layers, /*Number of atmospheric pressure layer
 {
     int i;
     uint64_t j;
-#pragma omp parallel for collapse(2) default(none) private(i,j)
+#pragma omp parallel for collapse(2) default(shared) private(i, j)
     for (i=0; i<num_layers; ++i)
     {
         for (j=0; j<num_wpoints; ++j)

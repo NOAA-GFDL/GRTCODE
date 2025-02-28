@@ -108,10 +108,7 @@ AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_FILES([Makefile
                  utilities/Makefile utilities/src/Makefile
                  gas-optics/Makefile gas-optics/src/Makefile
-                 cloud-optics/Makefile cloud-optics/src/Makefile
                  shortwave/Makefile shortwave/src/Makefile shortwave/test/Makefile
                  longwave/Makefile longwave/src/Makefile longwave/test/Makefile
-                 rfmip-irf/Makefile rfmip-irf/src/Makefile rfmip-irf/test/Makefile
-                 circ/Makefile circ/src/Makefile circ/test/Makefile
                  fortran-bindings/Makefile])
 AC_OUTPUT

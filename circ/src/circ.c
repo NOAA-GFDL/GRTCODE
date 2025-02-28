@@ -17,544 +17,549 @@
  */
 
 #include <math.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "argparse.h"
-#include "atmosphere.h"
-#include "cloud_optics.h"
-#include "disort_shortwave.h"
+#include "circ.h"
+#include "driver.h"
 #include "gas_optics.h"
 #include "grtcode_utilities.h"
-#include "longwave.h"
-#include "rayleigh.h"
-#include "shortwave.h"
-#include "solar_flux.h"
+#include "netcdf.h"
 
 
-#define catch(e) { \
+#define alloc(p, s, t) {p = (t)malloc(sizeof(*p)*s);}
+#define nc_catch(e) { \
     int e_ = e; \
-    if (e_ != GRTCODE_SUCCESS) { \
-        char b_[1024]; \
-        grtcode_errstr(e_, b_, 1024); \
-        fprintf(stderr, "[%s, %d] Error:\n", __FILE__, __LINE__); \
-        fprintf(stderr, "%s", b_); \
-        return EXIT_FAILURE; \
+    if (e_ != NC_NOERR) {\
+        fprintf(stderr, "[%s: %d] %s\n", __FILE__, __LINE__, nc_strerror(e_)); \
+        exit(EXIT_FAILURE); \
     }}
+#ifdef SINGLE_PRECISION
+#define get_var(a, b, c, d, e) nc_catch(nc_get_vara_float(a, b, c, d, e))
+#define put_var(a, b, c, d, e) nc_catch(nc_put_vara_float(a, b, c, d, e))
+#define put_att(a, b, c, d, e, f) nc_catch(nc_put_att_float(a, b, c, d, e ,f))
+#else
+#define get_var(a, b, c, d, e) nc_catch(nc_get_vara_double(a, b, c, d, e))
+#define put_var(a, b, c, d, e) nc_catch(nc_put_vara_double(a, b, c, d, e))
+#define put_att(a, b, c, d, e, f) nc_catch(nc_put_att_double(a, b, c, d, e ,f))
+#endif
+#define reset(start, count) { \
+    start[0] = 0; \
+    count[0] = 1;}
+#define toppmv 1.e6
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-#define MAX_NUM_MOLECULES 7
-#define MAX_NUM_CFCS 21
-#define MAX_NUM_CIAS 3
 
 
-static enum
+enum dimid
 {
-    TWOSTREAM,
-    DISORT
-} solvers;
+    LEVEL = 0,
+    NUM_DIMS
+};
 
 
-/** @brief Integrate using simple trapezoids on a uniform grid.*/
-static void integrate(fp_t const * const in, /**< Data to be integrated.*/
-                      uint64_t const n, /**< Size of input data array.*/
-                      fp_t const dx, /**< Grid spacing.*/
-                      fp_t * const out /**< Result of integral.*/
-                     )
+struct Output
 {
-    *out = 0.;
-    uint64_t i;
-    for (i=0; i<n-1; ++i)
-    {
-        *out += dx*0.5*(in[i] + in[i+1]);
-    }
-    return;
-}
+    int *dimid;
+    int ncid;
+    int *varid;
+};
 
 
-/** @brief Set a molecular species as active.*/
-static void activate_molecule(Parser_t const parser, /**< Parser object.*/
-                              char const * const arg, /**< Arg to check for.*/
-                              int * const array, /**< Array.*/
-                              int const tag, /**< Value to store in array.*/
-                              int * spot, /**< Current spot in array.*/
-                              int const max_size /**< Size of input array.*/
-                             )
-{
-    char buffer[valuelen];
-    if (get_argument(parser, arg, buffer))
-    {
-        if (*spot >= max_size)
-        {
-            fprintf(stderr, "Array is too small, increase size.\n");
-            exit(EXIT_FAILURE);
-        }
-        array[*spot] = tag;
-        *spot += 1;
-    }
-    return;
-}
-
-
-/** @brief Set a CFC as active.*/
-static void activate_cfc(Parser_t const parser, /**< Parser object.*/
-                         char const * const arg, /**< Arg to check for.*/
-                         Cfc_t * const array, /**< Array of Cfc_t objects.*/
-                         int const id, /**< CFC id to store.*/
-                         int * spot, /**< Current spot in array.*/
-                         int const max_size)
-{
-    char buffer[valuelen];
-    if (get_argument(parser, arg, buffer))
-    {
-        if (*spot >= max_size)
-        {
-            fprintf(stderr, "Array is too small, increase size.\n");
-            exit(EXIT_FAILURE);
-        }
-        array[*spot].id = id;
-        snprintf(array[*spot].path, valuelen, "%s", buffer);
-        *spot += 1;
-    }
-    return;
-}
-
-
-/** @brief Set collision-induced absorption as active.*/
-static void activate_cia(Parser_t const parser, /**< Parser object.*/
-                         char const * const arg, /**< Argument to check for.*/
-                         int * const array, /**< Array of species ids.*/
-                         int const id1, /**< Id of species.*/
-                         int const id2, /**< Id of species.*/
-                         int * spot, /**< Current spot in input array of species ids.*/
-                         int const max_size, /**< Size of input array of species ids.*/
-                         char **values, /**< Array to store argument values.*/
-                         int * values_spot, /**< Current spot in input are of values.*/
-                         int * combos /**< Store id combinations.*/
-                        )
-{
-    char buffer[valuelen];
-    if (get_argument(parser, arg, buffer))
-    {
-        if (*values_spot >= max_size)
-        {
-            fprintf(stderr, "Input values array is too small, increase size.\n");
-            exit(EXIT_FAILURE);
-        }
-        snprintf(values[*values_spot], valuelen, "%s", buffer);
-        int index = 2*(*values_spot);
-        combos[index] = id1;
-        combos[index+1] = id2;
-        *values_spot += 1;
-        int ids[2] = {id1, id2};
-        int i;
-        for (i=0; i<2; ++i)
-        {
-            if (*spot >= max_size)
-            {
-                fprintf(stderr, "Input array is too small, increase size.\n");
-                exit(EXIT_FAILURE);
-            }
-            int found = 0;
-            int j;
-            for (j=0; j<*spot; ++j)
-            {
-                if (ids[i] == array[j])
-                {
-                    found = 1;
-                    break;
-                }
-            }
-            if (!found)
-            {
-                array[*spot] = ids[i];
-                *spot += 1;
-            }
-        }
-    }
-    return;
-}
-
-
-/*Calculate the radiative fluxes for the CIRC test cases.*/
-int main(int argc, char **argv)
+/*Reserve memory and read in atmospheric data.*/
+Atmosphere_t create_atmosphere(Parser_t *parser)
 {
     /*Add/parse command line arguments.*/
-    char *description = "Calculates the radiative fluxes for the NASA CIRC test cases.";
-    Parser_t parser = create_parser(argc, argv, description);
-    add_argument(&parser, "input_file", NULL, "Input data file.", NULL);
-    add_argument(&parser, "hitran_file", NULL, "HITRAN database file.", NULL);
-    add_argument(&parser, "solar_flux", NULL, "Solar flux CSV file.", NULL);
+    snprintf(parser->description, desclen,
+             "Calculates the radiative fluxes for the NASA CIRC test cases.");
+    add_argument(parser, "input_file", NULL, "Input data file.", NULL);
     int one = 1;
-    add_argument(&parser, "-CCl4", NULL, "CSV file with CCl4 cross sections.", &one);
-    add_argument(&parser, "-CFC-11", NULL, "CSV file with CFC-11 cross sections.", &one);
-    add_argument(&parser, "-CFC-12", NULL, "CSV file with CFC-12 cross sections.", &one);
-    add_argument(&parser, "-CH4", NULL, "Include CH4.", NULL);
-    add_argument(&parser, "-CO", NULL, "Include CO.", NULL);
-    add_argument(&parser, "-CO2", NULL, "Include CO2.", NULL);
-    add_argument(&parser, "-H2O", NULL, "Include H2O.", NULL);
-    add_argument(&parser, "-N2-N2", NULL, "CSV file with N2-N2 collison cross sections", &one);
-    add_argument(&parser, "-N2O", NULL, "Include N2O.", NULL);
-    add_argument(&parser, "-O2", NULL, "Include O2.", NULL);
-    add_argument(&parser, "-O2-N2", NULL, "CSV file with O2-N2 collison cross sections", &one);
-    add_argument(&parser, "-O2-O2", NULL, "CSV file with O2-O2 collison cross sections", &one);
-    add_argument(&parser, "-O3", NULL, "Include O3.", NULL);
-    add_argument(&parser, "-a", "--surface-albedo", "Spectrally constant surface albedo.", &one);
-    add_argument(&parser, "-c", "--line-cutoff", "Cutoff [1/cm] from line center.", &one);
-    add_argument(&parser, "-clean", NULL, "Run without aerosols.", NULL);
-    add_argument(&parser, "-clear", NULL, "Run without clouds.", NULL);
-    add_argument(&parser, "-d", "--device", "GPU id", &one);
-    add_argument(&parser, "-h2o-ctm", NULL, "Directory containing H2O continuum files", &one);
-    add_argument(&parser, "-o", NULL, "Name of output file.", &one);
-    add_argument(&parser, "-o3-ctm", NULL, "Directory containing O3 continuum files", &one);
-    add_argument(&parser, "-p", "--cloud", "Cloud parameterization.", &one);
-    add_argument(&parser, "-r", "--spectral-resolution", "Spectral resolution [1/cm].", &one);
-    add_argument(&parser, "-s", "--solver", "Shortwave solver.", &one);
-    add_argument(&parser, "-v", "--verbose", "Increase verbosity.", NULL);
-    add_argument(&parser, "-w", "--spectral-lower-bound", "Spectral lower bound [1/cm].", &one);
-    add_argument(&parser, "-W", "--spectral-upper-bound", "Spectral upper bound [1/cm].", &one);
-    add_argument(&parser, "-z", "--level-lower-bound", "Starting level index.", &one);
-    add_argument(&parser, "-Z", "--level-upper-bound", "Ending level index.", &one);
-    parse_args(parser);
+    add_argument(parser, "-a", "--surface-albedo", "Spectrally constant surface albedo.", &one);
+    add_argument(parser, "-CCl4", NULL, "CSV file with CCl4 cross sections.", &one);
+    add_argument(parser, "-CFC-11", NULL, "CSV file with CFC-11 cross sections.", &one);
+    add_argument(parser, "-CFC-12", NULL, "CSV file with CFC-12 cross sections.", &one);
+    add_argument(parser, "-CH4", NULL, "Include CH4.", NULL);
+    add_argument(parser, "-clean", NULL, "Run without aerosols.", NULL);
+    add_argument(parser, "-clear", NULL, "Run without clouds.", NULL);
+    add_argument(parser, "-CO", NULL, "Include CO.", NULL);
+    add_argument(parser, "-CO2", NULL, "Include CO2.", NULL);
+    add_argument(parser, "-H2O", NULL, "Include H2O.", NULL);
+    add_argument(parser, "-h2o-ctm", NULL, "Directory containing H2O continuum files", &one);
+    add_argument(parser, "-N2-N2", NULL, "CSV file with N2-N2 collison cross sections", &one);
+    add_argument(parser, "-N2O", NULL, "Include N2O.", NULL);
+    add_argument(parser, "-O2", NULL, "Include O2.", NULL);
+    add_argument(parser, "-O2-N2", NULL, "CSV file with O2-N2 collison cross sections", &one);
+    add_argument(parser, "-O2-O2", NULL, "CSV file with O2-O2 collison cross sections", &one);
+    add_argument(parser, "-O3", NULL, "Include O3.", NULL);
+    add_argument(parser, "-o3-ctm", NULL, "Directory containing O3 continuum files", &one);
+    add_argument(parser, "-p", "--cloud", "Cloud parameterization.", &one);
+    add_argument(parser, "-z", "--level-lower-bound", "Starting level index.", &one);
+    add_argument(parser, "-Z", "--level-upper-bound", "Ending level index.", &one);
+    parse_args(*parser);
 
-    /*Set verbosity.*/
+    /*Open the input file.*/
     char buffer[valuelen];
-    if (get_argument(parser, "-v", NULL))
-    {
-        grtcode_set_verbosity(GRTCODE_INFO);
-    }
-    else
-    {
-        grtcode_set_verbosity(GRTCODE_WARN);
-    }
+    get_argument(*parser, "input_file", buffer);
+    int ncid;
+    nc_catch(nc_open(buffer, NC_NOWRITE, &ncid));
 
-    /*Set device.*/
-    Device_t device;
-    if (get_argument(parser, "-d", buffer))
-    {
-        int d = atoi(buffer);
-        catch(create_device(&device, &d));
-    }
-    else
-    {
-        catch(create_device(&device, NULL));
-    }
-
-    /*Create a spectral grid.*/
-    double w0 = 1.;
-    if (get_argument(parser, "-w", buffer))
-    {
-        w0 = atof(buffer);
-    }
-    double wn = 50000.;
-    if (get_argument(parser, "-W", buffer))
-    {
-        wn = atof(buffer);
-    }
-    double dw = 0.1;
-    if (get_argument(parser, "-r", buffer))
-    {
-        dw = atof(buffer);
-    }
-    SpectralGrid_t grid;
-    catch(create_spectral_grid(&grid, w0, wn, dw));
-
-    /*Determine which molecules to use.*/
-    int molecules[MAX_NUM_MOLECULES];
-    int num_molecules = 0;
-    activate_molecule(parser, "-CH4", molecules, CH4, &num_molecules, MAX_NUM_MOLECULES);
-    activate_molecule(parser, "-CO", molecules, CO, &num_molecules, MAX_NUM_MOLECULES);
-    activate_molecule(parser, "-CO2", molecules, CO2, &num_molecules, MAX_NUM_MOLECULES);
-    activate_molecule(parser, "-H2O", molecules, H2O, &num_molecules, MAX_NUM_MOLECULES);
-    activate_molecule(parser, "-N2O", molecules, N2O, &num_molecules, MAX_NUM_MOLECULES);
-    activate_molecule(parser, "-O2", molecules, O2, &num_molecules, MAX_NUM_MOLECULES);
-    activate_molecule(parser, "-O3", molecules, O3, &num_molecules, MAX_NUM_MOLECULES);
-
-    /*Determine which CFCs to use.*/
-    Cfc_t cfc[MAX_NUM_CFCS];
-    int i;
-    for (i=0; i<MAX_NUM_CFCS; ++i)
-    {
-        cfc[i].path = (char *)malloc(sizeof(*(cfc[i].path))*valuelen);
-    }
-    int num_cfcs = 0;
-    activate_cfc(parser, "-CCl4", cfc, CCl4, &num_cfcs, MAX_NUM_CFCS);
-    activate_cfc(parser, "-CFC-11", cfc, CFC11, &num_cfcs, MAX_NUM_CFCS);
-    activate_cfc(parser, "-CFC-12", cfc, CFC12, &num_cfcs, MAX_NUM_CFCS);
-
-    /*Determine which collision-induced absorption spectra to include.*/
-    int cia_species[MAX_NUM_CIAS];
-    char *cia_path[MAX_NUM_CIAS];
-    int cia_combos[2*MAX_NUM_CIAS];
-    for (i=0; i<MAX_NUM_CIAS; ++i)
-    {
-        cia_path[i] = (char *)malloc(sizeof(*(cia_path[i]))*valuelen);
-    }
-    int num_cia_species = 0;
-    int num_cias = 0;
-    activate_cia(parser, "-N2-N2", cia_species, CIA_N2, CIA_N2, &num_cia_species,
-                 MAX_NUM_CIAS, cia_path, &num_cias, cia_combos);
-    activate_cia(parser, "-O2-O2", cia_species, CIA_O2, CIA_O2, &num_cia_species,
-                 MAX_NUM_CIAS, cia_path, &num_cias, cia_combos);
-    activate_cia(parser, "-O2-N2", cia_species, CIA_O2, CIA_N2, &num_cia_species,
-                 MAX_NUM_CIAS, cia_path, &num_cias, cia_combos);
-
-    /*Read in the atmospheric input data.*/
+    /*Determine the number of levels.*/
     Atmosphere_t atm;
-    atm.grid = grid;
-    atm.z = 0;
-    if (get_argument(parser, "-z", buffer))
+    int z = get_argument(*parser, "-z", buffer) ? atoi(buffer) : 0;
+    int Z;
+    if (get_argument(*parser, "-Z", buffer))
     {
-        atm.z = atoi(buffer);
+        Z = atoi(buffer);
     }
-    atm.Z = -1;
-    if (get_argument(parser, "-Z", buffer))
+    else
     {
-        atm.Z = atoi(buffer);
+        int dimid;
+        nc_catch(nc_inq_dimid(ncid, "levels", &dimid));
+        size_t num_levels;
+        nc_catch(nc_inq_dimlen(ncid, dimid, &num_levels));
+        Z = (int)num_levels - 1;
     }
-    atm.alpha = -1.;
-    if (get_argument(parser, "-a", buffer))
-    {
-        atm.alpha = atof(buffer);
-        if (atm.alpha < 0.)
-        {
-            fprintf(stderr, "Surface albedo (-a) must be >= 0.\n");
-            exit(EXIT_FAILURE);
-        }
-    }
-    atm.clean = 0;
-    if (get_argument(parser, "-clean", NULL))
-    {
-        atm.clean = 1;
-    }
-    atm.clear = 0;
-    if (get_argument(parser, "-clear", NULL))
-    {
-        atm.clear = 1;
-    }
-    get_argument(parser, "input_file", buffer);
-    create_atmosphere(&atm, buffer, molecules, num_molecules, cfc, num_cfcs,
-                      cia_species, num_cia_species);
+    atm.num_levels = Z - z + 1;
+    atm.num_layers = atm.num_levels - 1;
+    atm.num_columns = 1;
+    atm.num_times = 1;
 
-    /*Read in the incident solar flux.*/
-    SolarFlux_t solar_flux;
-    get_argument(parser, "solar_flux", buffer);
-    catch(create_solar_flux(&solar_flux, &grid, buffer));
+    /*Pressure.*/
+    alloc(atm.level_pressure, atm.num_levels*atm.num_columns, fp_t *);
+    int varid;
+    nc_catch(nc_inq_varid(ncid, "level_pressure", &varid));
+    size_t start = z;
+    size_t count = atm.num_levels*atm.num_columns;
+    get_var(ncid, varid, &start, &count, atm.level_pressure);
+    alloc(atm.layer_pressure, atm.num_layers*atm.num_columns, fp_t *);
+    nc_catch(nc_inq_varid(ncid, "layer_pressure", &varid));
+    count = atm.num_layers*atm.num_columns;
+    get_var(ncid, varid, &start, &count, atm.layer_pressure);
 
-    /*Initialize a molecular lines object.*/
-    char hitran_path[valuelen];
-    get_argument(parser, "hitran_file", hitran_path);
-    char h2o_ctm[valuelen];
-    if (!get_argument(parser, "-h2o-ctm", h2o_ctm))
-    {
-        snprintf(h2o_ctm, valuelen, "%s", "none");
-    }
-    char o3_ctm[valuelen];
-    if (!get_argument(parser, "-o3-ctm", o3_ctm))
-    {
-        snprintf(o3_ctm, valuelen, "%s", "none");
-    }
-    GasOptics_t molecular_lines;
-    int method = line_sweep;
-    catch(create_gas_optics(&molecular_lines, atm.num_levels, &grid, &device,
-                            hitran_path, h2o_ctm, o3_ctm, NULL, &method));
+    /*Temperature.*/
+    alloc(atm.level_temperature, atm.num_levels*atm.num_columns, fp_t *);
+    nc_catch(nc_inq_varid(ncid, "level_temperature", &varid));
+    count = atm.num_levels*atm.num_columns;
+    get_var(ncid, varid, &start, &count, atm.level_temperature);
+    alloc(atm.layer_temperature, atm.num_layers*atm.num_columns, fp_t *);
+    nc_catch(nc_inq_varid(ncid, "layer_temperature", &varid));
+    count = atm.num_layers*atm.num_columns;
+    get_var(ncid, varid, &start, &count, atm.layer_temperature);
+    alloc(atm.surface_temperature, atm.num_columns, fp_t *);
+    nc_catch(nc_inq_varid(ncid, "surface_temperature", &varid));
+    start = 0;
+    count = atm.num_columns;
+    get_var(ncid, varid, &start, &count, atm.surface_temperature);
 
-    /*Add molecules, CFCs, and collision-induced absoprtion.*/
+    /*Solar zenith angle.*/
+    alloc(atm.solar_zenith_angle, atm.num_columns, fp_t *);
+    nc_catch(nc_inq_varid(ncid, "solar_zenith_angle", &varid));
+    get_var(ncid, varid, &start, &count, atm.solar_zenith_angle);
+    int i;
+    for (i=0; i<atm.num_columns; ++i)
+    {
+        atm.solar_zenith_angle[i] = cos(2.*M_PI*atm.solar_zenith_angle[i]/360.);
+    }
+
+    /*Solar irradiance.*/
+    alloc(atm.total_solar_irradiance, atm.num_columns, fp_t *);
+    nc_catch(nc_inq_varid(ncid, "toa_solar_irradiance", &varid));
+    get_var(ncid, varid, &start, &count, atm.total_solar_irradiance);
+    for (i=0; i<atm.num_columns; ++i)
+    {
+        atm.total_solar_irradiance[i] /= atm.solar_zenith_angle[i];
+    }
+
+    /*Surface albedo.*/
+    if (get_argument(*parser, "-a", buffer))
+    {
+        atm.albedo_grid_size = 2;
+        alloc(atm.albedo_grid, atm.albedo_grid_size, fp_t *);
+        atm.albedo_grid[0] = -1.;
+        atm.albedo_grid[1] = 0.;
+        alloc(atm.surface_albedo, atm.albedo_grid_size, fp_t *);
+        atm.surface_albedo[0] = (fp_t)(atof(buffer));
+        atm.surface_albedo[1] = atm.surface_albedo[0];
+    }
+    else
+    {
+        int dimid;
+        nc_catch(nc_inq_dimid(ncid, "wavenumber", &dimid));
+        nc_catch(nc_inq_dimlen(ncid, dimid, &atm.albedo_grid_size));
+        alloc(atm.albedo_grid, atm.albedo_grid_size, fp_t *);
+        nc_catch(nc_inq_varid(ncid, "wavenumber", &varid));
+        count = atm.albedo_grid_size;
+        get_var(ncid, varid, &start, &count, atm.albedo_grid);
+        alloc(atm.surface_albedo, atm.albedo_grid_size, fp_t *);
+        nc_catch(nc_inq_varid(ncid, "surface_albedo", &varid));
+        get_var(ncid, varid, &start, &count, atm.surface_albedo);
+    }
+
+    /*Surface emissivity. CIRC cases assume this is 1.*/
+    atm.emissivity_grid_size = 2;
+    alloc(atm.emissivity_grid, atm.emissivity_grid_size, fp_t *);
+    atm.emissivity_grid[0] = -1.;
+    atm.emissivity_grid[1] = 0.;
+    alloc(atm.surface_emissivity, atm.emissivity_grid_size, fp_t *);
+    atm.surface_emissivity[0] = 1.;
+    atm.surface_emissivity[1] = atm.surface_emissivity[0];
+
+    /*Molecular abundances.*/
+    fp_t const to_ppmv = 1.e6;
+    struct MoleculeMeta
+    {
+        int id;
+        char *flag;
+        char *name;
+    };
+    int const num_molecules = 7;
+    struct MoleculeMeta molecules[num_molecules] = {{CH4, "-CH4", "CH4_abundance"},
+        {CO, "-CO", "CO_abundance"}, {CO2, "-CO2", "CO2_abundance"},
+        {H2O, "-H2O", "H2O_abundance"}, {N2O, "-N2O", "N2O_abundance"},
+        {O2, "-O2", "O2_abundance"}, {O3, "-O3", "O3_abundance"}};
+    alloc(atm.molecules, num_molecules, int *);
+    atm.num_molecules = 0;
+    alloc(atm.ppmv, num_molecules, fp_t **);
+    fp_t *abundance;
+    alloc(abundance, atm.num_layers, fp_t *);
     for (i=0; i<num_molecules; ++i)
     {
-        catch(add_molecule(&molecular_lines, molecules[i], NULL, NULL));
+        if (get_argument(*parser, molecules[i].flag, NULL))
+        {
+            atm.molecules[atm.num_molecules] = molecules[i].id;
+            alloc(atm.ppmv[atm.num_molecules], atm.num_levels*atm.num_columns, fp_t *);
+            nc_catch(nc_inq_varid(ncid, molecules[i].name, &varid));
+            start = z;
+            count = atm.num_layers;
+            get_var(ncid, varid, &start, &count, abundance);
+            fp_t *ppmv = atm.ppmv[atm.num_molecules];
+            ppmv[0] = abundance[0]*to_ppmv;
+            ppmv[atm.num_layers] = abundance[atm.num_layers-1]*to_ppmv;
+            int j;
+            for (j=1; j<atm.num_layers; ++j)
+            {
+                ppmv[j] = to_ppmv*(abundance[j] + (abundance[j+1] - abundance[j])*
+                          (atm.level_pressure[j] - atm.layer_pressure[j])/
+                          (atm.layer_pressure[j+1] - atm.layer_pressure[j]));
+            }
+            atm.num_molecules++;
+        }
     }
+
+    /*Molecular continua.*/
+    if (!get_argument(*parser, "-h2o-ctm", atm.h2o_ctm))
+    {
+        snprintf(atm.h2o_ctm, valuelen, "%s", "none");
+    }
+    if (!get_argument(*parser, "-o3-ctm", atm.o3_ctm))
+    {
+        snprintf(atm.o3_ctm, valuelen, "%s", "none");
+    }
+
+    /*CFC abundances.*/
+    int const num_cfcs = 3;
+    struct MoleculeMeta cfcs[num_cfcs] = {{CFC11, "-CFC-11", "CFC11_abundance"},
+        {CFC12, "-CFC-12", "CFC12_abundance"}, {CCl4, "-CCl4", "CCl4_abundance"}};
+    alloc(atm.cfc, num_cfcs, Cfc_t *);
+    atm.num_cfcs = 0;
+    alloc(atm.cfc_ppmv, num_cfcs, fp_t **);
     for (i=0; i<num_cfcs; ++i)
     {
-        catch(add_cfc(&molecular_lines, cfc[i].id, cfc[i].path));
+        if (get_argument(*parser, cfcs[i].flag, atm.cfc[atm.num_cfcs].path))
+        {
+            atm.cfc[atm.num_cfcs].id = cfcs[i].id;
+            alloc(atm.cfc_ppmv[atm.num_cfcs], atm.num_levels*atm.num_columns, fp_t *);
+            nc_catch(nc_inq_varid(ncid, cfcs[i].name, &varid));
+            start = z;
+            count = atm.num_layers;
+            get_var(ncid, varid, &start, &count, abundance);
+            fp_t *ppmv = atm.cfc_ppmv[atm.num_cfcs];
+            ppmv[0] = abundance[0]*to_ppmv;
+            ppmv[atm.num_layers] = abundance[atm.num_layers-1]*to_ppmv;
+            int j;
+            for (j=1; j<atm.num_layers; ++j)
+            {
+                ppmv[j] = to_ppmv*(abundance[j] + (abundance[j+1] - abundance[j])*
+                          (atm.level_pressure[j] - atm.layer_pressure[j])/
+                          (atm.layer_pressure[j+1] - atm.layer_pressure[j]));
+            }
+            atm.num_cfcs++;
+        }
     }
+
+    /*Collision-induced absorption (CIA) abundances.*/
+    int const num_cias = 3;
+    int const num_cia_species = 2;
+    struct CiaMeta
+    {
+        int species1;
+        int species2;
+        char *flag;
+    };
+    struct CiaMeta cias[num_cias] = {{CIA_N2, CIA_N2, "-N2-N2"},
+        {CIA_O2, CIA_N2, "-O2-N2"}, {CIA_O2, CIA_O2, "-O2-O2"}};
+    alloc(atm.cia, num_cias, Cia_t *);
+    atm.num_cias = 0;
+    alloc(atm.cia_species, num_cia_species, int *);
+    atm.num_cia_species = 0;
+    alloc(atm.cia_ppmv, num_cia_species, fp_t **);
     for (i=0; i<num_cias; ++i)
     {
-        int index = 2*i;
-        catch(add_cia(&molecular_lines, cia_combos[index], cia_combos[index+1],
-                      cia_path[i]));
+        if (get_argument(*parser, cias[i].flag, atm.cia[atm.num_cias].path))
+        {
+            atm.cia[atm.num_cias].id[0] = cias[i].species1;
+            atm.cia[atm.num_cias].id[1] = cias[i].species2;
+            int j;
+            for (j=0; j<2; ++j)
+            {
+                int k;
+                for (k=0; k<atm.num_cia_species; ++k)
+                {
+                    if (atm.cia[atm.num_cias].id[j] == atm.cia_species[k])
+                    {
+                        break;
+                    }
+                }
+                if (k >= atm.num_cia_species)
+                {
+                    atm.cia_species[atm.num_cia_species] = atm.cia[atm.num_cias].id[j];
+                    alloc(atm.cia_ppmv[atm.num_cia_species], atm.num_levels*atm.num_columns, fp_t *);
+                    fp_t *ppmv = atm.cia_ppmv[atm.num_cia_species];
+                    if (atm.cia_species[atm.num_cia_species] == CIA_N2)
+                    {
+                        for (k=0; k<atm.num_levels; ++k)
+                        {
+                            ppmv[k] = 0.781*to_ppmv;
+                        }
+                    }
+                    else if (atm.cia_species[atm.num_cia_species] == CIA_O2)
+                    {
+                        nc_catch(nc_inq_varid(ncid, "O2_abundance", &varid));
+                        start = z;
+                        count = atm.num_layers;
+                        get_var(ncid, varid, &start, &count, abundance);
+                        ppmv[0] = abundance[0]*to_ppmv;
+                        ppmv[atm.num_layers] = abundance[atm.num_layers-1]*to_ppmv;
+                        for (k=1; k<atm.num_layers; ++k)
+                        {
+                            ppmv[k] = to_ppmv*(abundance[k] + (abundance[k+1] - abundance[k])*
+                                      (atm.level_pressure[k] - atm.layer_pressure[k])/
+                                      (atm.layer_pressure[k+1] - atm.layer_pressure[k]));
+                        }
+                    }
+                    atm.num_cia_species++;
+                }
+            }
+            atm.num_cias++;
+        }
     }
+    free(abundance);
 
-    /*Initialize optics objects.*/
-    Optics_t optics_ml;
-    catch(create_optics(&optics_ml, atm.num_layers, &grid, &device));
-    Optics_t optics_rayleigh;
-    catch(create_optics(&optics_rayleigh, atm.num_layers, &grid, &device));
-    Optics_t optics_aerosol;
-    catch(create_optics(&optics_aerosol, atm.num_layers, &grid, &device));
-    Optics_t optics_clouds;
-    catch(create_optics(&optics_clouds, atm.num_layers, &grid, &device));
-
-    /*Initialize a longwave object.*/
-    Longwave_t longwave;
-    catch(create_longwave(&longwave, atm.num_levels, &grid, &device));
-
-    /*Initialize a shortwave object.*/
-    Shortwave_t shortwave;
-    catch(create_shortwave(&shortwave, atm.num_levels, &grid, &device));
-
-    /*Initialize the output file.*/
-    if (!get_argument(parser, "-o", buffer))
-    {
-        snprintf(buffer, valuelen, "%s", "circ.output.nc");
-    }
-    Output_t output = create_flux_file(buffer, &atm);
-
-    /*Calculate the column.*/
-    fp_t *flux_up = (fp_t *)malloc(sizeof(*flux_up)*atm.num_levels*grid.n);
-    fp_t *flux_down = (fp_t *)malloc(sizeof(*flux_down)*atm.num_levels*grid.n);
-
-    /*Calculate molecular spectra.*/
-    fp_t *level_pressure = atm.level_pressure;
-    fp_t *level_temperature = atm.level_temperature;
-    int j;
-    for (j=0; j<num_molecules; ++j)
-    {
-        fp_t *ppmv = atm.ppmv[j];
-        catch(set_molecule_ppmv(&molecular_lines, molecules[j], ppmv));
-    }
-    for (j=0; j<num_cfcs; ++j)
-    {
-        fp_t *ppmv = atm.cfc_ppmv[j];
-        catch(set_cfc_ppmv(&molecular_lines, cfc[j].id, ppmv));
-    }
-    for (j=0; j<num_cia_species; ++j)
-    {
-        fp_t *ppmv = atm.cia_ppmv[j];
-        catch(set_cia_ppmv(&molecular_lines, cia_species[j], ppmv));
-    }
-    catch(calculate_optical_depth(&molecular_lines, level_pressure,
-                                  level_temperature, &optics_ml));
-
+    /*Aerosols.*/
+    atm.clean = get_argument(*parser, "-clean", NULL);
     if (!atm.clean)
     {
-        /*Get the aerosol optical properties.*/
-        catch(update_optics(&optics_aerosol, atm.aerosol_optical_depth,
-                            atm.aerosol_single_scatter_albedo, atm.aerosol_asymmetry_factor));
+        nc_catch(nc_inq_varid(ncid, "angstrom_exponent", &varid));
+        fp_t alpha;
+        start = 0;
+        count = 1;
+        get_var(ncid, varid, &start, &count, &alpha);
+        atm.aerosol_grid_size = 50000;
+        alloc(atm.aerosol_grid, atm.aerosol_grid_size, fp_t *);
+        for (i=0; i<atm.aerosol_grid_size; ++i)
+        {
+            atm.aerosol_grid[i] = (fp_t)(i + 1);
+        }
+        fp_t *optics;
+        alloc(optics, atm.num_layers, fp_t *);
+        nc_catch(nc_inq_varid(ncid, "aerosol_optical_depth_at_1_micron", &varid));
+        start = z;
+        count = atm.num_layers;
+        get_var(ncid, varid, &start, &count, optics);
+        alloc(atm.aerosol_optical_depth, atm.num_layers*atm.aerosol_grid_size, fp_t *);
+        fp_t const cmtomicron = 10000.;
+        for (i=0; i<atm.num_layers; ++i)
+        {
+            int j;
+            for (j=0; j<atm.aerosol_grid_size; ++j)
+            {
+                fp_t lambda = cmtomicron/(atm.aerosol_grid[j]);
+                atm.aerosol_optical_depth[i*atm.aerosol_grid_size+j] = optics[i]*pow(lambda, -1.*alpha);
+            }
+        }
+        nc_catch(nc_inq_varid(ncid, "aerosol_single_scatter_albedo", &varid));
+        get_var(ncid, varid, &start, &count, optics);
+        alloc(atm.aerosol_single_scatter_albedo, atm.num_layers*atm.aerosol_grid_size, fp_t *);
+        for (i=0; i<atm.num_layers; ++i)
+        {
+            int j;
+            for (j=0; j<atm.aerosol_grid_size; ++j)
+            {
+                atm.aerosol_single_scatter_albedo[i*atm.aerosol_grid_size+j] = optics[i];
+            }
+        }
+        nc_catch(nc_inq_varid(ncid, "aerosol_asymmetry_factor", &varid));
+        get_var(ncid, varid, &start, &count, optics);
+        alloc(atm.aerosol_asymmetry_factor, atm.num_layers*atm.aerosol_grid_size, fp_t *);
+        for (i=0; i<atm.num_layers; ++i)
+        {
+            int j;
+            for (j=0; j<atm.aerosol_grid_size; ++j)
+            {
+                atm.aerosol_asymmetry_factor[i*atm.aerosol_grid_size+j] = optics[i];
+            }
+        }
+        free(optics);
     }
 
+    /*Clouds.*/
+    atm.clear = get_argument(*parser, "-clear", NULL);
     if (!atm.clear)
     {
-        /*Calculate the cloud optical properties.*/
-        LiquidCloud_t cloud_param = hu_stamnes_1993;
-        if (get_argument(parser, "-p", buffer))
-        {
-            if (strcmp(buffer, "slingo") == 0)
-            {
-                cloud_param = slingo_1989;
-            }
-            else if (strcmp(buffer, "hu") != 0)
-            {
-                fprintf(stderr, "Cloud parameterization (-p) must be either hu or slingo.\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-        catch(cloud_optics(&optics_clouds, atm.liquid_water_path,
-                           atm.liquid_water_droplet_radius, cloud_param));
+        alloc(atm.liquid_water_content, atm.num_layers*atm.num_columns, fp_t *);
+        nc_catch(nc_inq_varid(ncid, "liquid_water_path", &varid));
+        start = z;
+        count = atm.num_layers;
+        get_var(ncid, varid, &start, &count, atm.liquid_water_content);
+        alloc(atm.liquid_water_droplet_radius, atm.num_layers*atm.num_columns, fp_t *);
+        nc_catch(nc_inq_varid(ncid, "liquid_water_effective_particle_size", &varid));
+        start = z;
+        count = atm.num_layers;
+        get_var(ncid, varid, &start, &count, atm.liquid_water_droplet_radius);
     }
 
-   /*Calculate the optical properities.*/
-    catch(rayleigh_scattering(&optics_rayleigh, level_pressure));
+    /*Close input file.*/
+    nc_catch(nc_close(ncid));
+    return atm;
+}
 
-    /*Calculate the combined optical properties.*/
-    Optics_t const * const optics_mech[4] = {&optics_ml, &optics_aerosol,
-                                             &optics_clouds, &optics_rayleigh};
-    Optics_t optics_combined;
-    catch(add_optics(optics_mech, 4, &optics_combined));
 
-    /*Calculate longwave fluxes.*/
-    fp_t surface_temperature = atm.surface_temperature;
-    fp_t *layer_temperature = atm.layer_temperature;
-    fp_t *surface_emissivity = atm.surface_emissivity;
-    double lw_solver_w0 = 1. < grid.w0 ? grid.w0 : 1.;
-    double lw_solver_wn = 3250. > grid.wn ? grid.wn : 3250.;
-    SpectralGrid_t lw_solver_grid;
-    catch(create_spectral_grid(&lw_solver_grid, lw_solver_w0, lw_solver_wn, grid.dw));
-    catch(calculate_lw_fluxes(&longwave, &optics_combined, surface_temperature,
-                              layer_temperature, level_temperature,
-                              surface_emissivity, flux_up, flux_down,
-                              &(lw_solver_grid.w0), &(lw_solver_grid.wn)));
-
-    /*Integrate fluxes and write them to the output file.*/
-    fp_t flux_up_total[atm.num_levels];
-    fp_t flux_down_total[atm.num_levels];
-    for (j=0; j<atm.num_levels; ++j)
+/*Free memory for atmosphere.*/
+void destroy_atmosphere(Atmosphere_t * const atm)
+{
+    free(atm->layer_pressure);
+    free(atm->level_pressure);
+    free(atm->layer_temperature);
+    free(atm->level_temperature);
+    free(atm->solar_zenith_angle);
+    free(atm->surface_temperature);
+    free(atm->total_solar_irradiance);
+    free(atm->albedo_grid);
+    free(atm->surface_albedo);
+    free(atm->emissivity_grid);
+    free(atm->surface_emissivity);
+    if (!atm->clean)
     {
-        integrate(&(flux_up[j*lw_solver_grid.n]), lw_solver_grid.n, lw_solver_grid.dw,
-                  &(flux_up_total[j]));
-        integrate(&(flux_down[j*lw_solver_grid.n]), lw_solver_grid.n, lw_solver_grid.dw,
-                  &(flux_down_total[j]));
+        free(atm->aerosol_grid);
+        free(atm->aerosol_optical_depth);
+        free(atm->aerosol_single_scatter_albedo);
+        free(atm->aerosol_asymmetry_factor);
     }
-    write_fluxes(&output, RLU, flux_up_total);
-    write_fluxes(&output, RLD, flux_down_total);
-
-    fp_t const zen_dir = atm.solar_zenith_angle;
-    if (zen_dir > 0.)
+    if (!atm->clear)
     {
-        /*Calculate shortwave fluxes.*/
-        fp_t const zen_dif = 0.5;
-        fp_t *albedo_dir = atm.surface_albedo;
-        int solver = TWOSTREAM;
-        if (get_argument(parser, "-s", buffer))
-        {
-            if (strcmp(buffer, "disort") == 0)
-            {
-                solver = DISORT;
-            }
-            else if (strcmp(buffer, "2stream") != 0)
-            {
-                fprintf(stderr, "Shortwave solver (-s) must be disort or 2stream.\n");
-                exit(EXIT_FAILURE);
-            }
-        }
-        if (solver == DISORT)
-        {
-            catch(disort_shortwave(&optics_combined, zen_dir, albedo_dir,
-                                   atm.total_solar_irradiance, solar_flux.incident_flux,
-                                   flux_up, flux_down));
-        }
-        else
-        {
-            fp_t *albedo_dif = albedo_dir;
-            catch(calculate_sw_fluxes(&shortwave, &optics_combined, zen_dir, zen_dif,
-                                      albedo_dir, albedo_dif, atm.total_solar_irradiance,
-                                      solar_flux.incident_flux, flux_up, flux_down));
-        }
-
-        /*Integrate fluxes and write them to the output file.*/
-        for (j=0; j<atm.num_levels; ++j)
-        {
-            integrate(&(flux_up[j*grid.n]), grid.n, grid.dw, &(flux_up_total[j]));
-            integrate(&(flux_down[j*grid.n]), grid.n, grid.dw, &(flux_down_total[j]));
-        }
-        write_fluxes(&output, RSU, flux_up_total);
-        write_fluxes(&output, RSD, flux_down_total);
+        free(atm->liquid_water_droplet_radius);
+        free(atm->liquid_water_content);
     }
-
-    /*Clean up.*/
-    close_flux_file(&output);
-    free(flux_up);
-    free(flux_down);
-    catch(destroy_shortwave(&shortwave));
-    catch(destroy_longwave(&longwave));
-    catch(destroy_solar_flux(&solar_flux));
-    catch(destroy_optics(&optics_ml));
-    catch(destroy_optics(&optics_rayleigh));
-    catch(destroy_optics(&optics_aerosol));
-    catch(destroy_optics(&optics_clouds));
-    catch(destroy_optics(&optics_combined));
-    catch(destroy_gas_optics(&molecular_lines));
-    destroy_atmosphere(&atm);
-    destroy_parser(&parser);
-    for (i=0; i<MAX_NUM_CFCS; ++i)
+    int i;
+    for (i=0; i<atm->num_molecules; ++i)
     {
-        free(cfc[i].path);
+        free(atm->ppmv[i]);
     }
-    for (i=0; i<MAX_NUM_CIAS; ++i)
+    free(atm->ppmv);
+    free(atm->molecules);
+    for (i=0; i<atm->num_cfcs; ++i)
     {
-        free(cia_path[i]);
+        free(atm->cfc_ppmv[i]);
     }
-    return EXIT_SUCCESS;
+    free(atm->cfc_ppmv);
+    free(atm->cfc);
+    for (i=0; i<atm->num_cia_species; ++i)
+    {
+        free(atm->cia_ppmv[i]);
+    }
+    free(atm->cia_ppmv);
+    free(atm->cia);
+    free(atm->cia_species);
+    return;
+}
+
+
+/*Add a variable to the output file.*/
+static void add_flux_variable(Output_t * const o, /*Output object.*/
+                              VarId_t const index, /*Variable index.*/
+                              char const * const name, /*Variable name.*/
+                              char const * const standard_name, /*Variable standard name.*/
+                              fp_t const * const fill_value /*Fill value.*/
+                             )
+{
+#ifdef SINGLE_PRESCISION
+    nc_type type = NC_FLOAT;
+#else
+    nc_type type = NC_DOUBLE;
+#endif
+    int varid;
+    nc_catch(nc_def_var(o->ncid, name, type, NUM_DIMS, o->dimid, &varid));
+    char *unit = "W m-2";
+    nc_catch(nc_put_att_text(o->ncid, varid, "units", strlen(unit), unit));
+    nc_catch(nc_put_att_text(o->ncid, varid, "standard_name", strlen(standard_name),
+                             standard_name));
+    if (fill_value != NULL)
+    {
+#ifdef SINGLE_PRESCISION
+        nc_catch(nc_put_att_float(o->ncid, varid, "_FillValue", type, 1, fill_value));
+#else
+        nc_catch(nc_put_att_double(o->ncid, varid, "_FillValue", type, 1, fill_value));
+#endif
+    }
+    o->varid[index] = varid;
+    return;
+}
+
+
+/*Create an output file and write metadata.*/
+void create_flux_file(Output_t **output, char const * const filepath,
+                      Atmosphere_t const * const atm, SpectralGrid_t const * const lw_grid,
+                      SpectralGrid_t const * const sw_grid)
+{
+    Output_t *file = (Output_t *)malloc(sizeof(*file));
+    file->dimid = (int *)malloc(sizeof(*(file->dimid))*NUM_DIMS);
+    file->varid = (int *)malloc(sizeof(*(file->varid))*NUM_VARS);
+    nc_catch(nc_create(filepath, NC_NETCDF4, &(file->ncid)));
+    nc_catch(nc_def_dim(file->ncid, "level", atm->num_levels, &(file->dimid[LEVEL])));
+    add_flux_variable(file, RLUAF, "rlu", "upwelling_longwave_flux_in_air", NULL);
+    add_flux_variable(file, RLDAF, "rld", "downwelling_longwave_flux_in_air", NULL);
+    fp_t const zero = 0;
+    add_flux_variable(file, RSU, "rsu", "upwelling_shortwave_flux_in_air", &zero);
+    add_flux_variable(file, RSD, "rsd", "downwelling_shortwave_flux_in_air", &zero);
+    *output = file;
+    return;
+}
+
+
+/*Close output file.*/
+void close_flux_file(Output_t * const o)
+{
+    nc_catch(nc_close(o->ncid));
+    free(o->varid);
+    free(o->dimid);
+    return;
+}
+
+
+/*Write fluxes to the output file.*/
+void write_output(Output_t *output, VarId_t id, fp_t *data, int time, int column)
+{
+    size_t num_levels;
+    nc_catch(nc_inq_dimlen(output->ncid, output->dimid[LEVEL], &num_levels));
+    size_t start = 0;
+    size_t count = num_levels;
+#ifdef SINGLE_PRECISION
+    nc_catch(nc_put_vara_float(output->ncid, output->varid[id], &start, &count, data))
+#else
+    nc_catch(nc_put_vara_double(output->ncid, output->varid[id], &start, &count, data))
+#endif
+    (void)time;
+    (void)column;
+    return;
 }

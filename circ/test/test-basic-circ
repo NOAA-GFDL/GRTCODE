@@ -1,0 +1,24 @@
+#!/bin/bash -x
+export OMP_NUM_THREADS="6"
+declare datadir="/home/ray/grtcode/grtcode-data"
+
+
+for i in `seq 1 1`; do
+/home/ray/grtcode/build/circ \
+  $datadir/HITRAN_files/hitran2016.par \
+  $datadir/solar_flux/solar_flux.csv \
+  -H2O -CO2 -O3 -N2O -CH4 -CO -O2 \
+  -h2o-ctm $datadir/water_vapor_continuum \
+  -o3-ctm $datadir/ozone_continuum/ozone_continuum.csv \
+  -CFC-11 $datadir/cfc_cross_sections/CFC-11_absorption_cross_sections.csv \
+  -CFC-12 $datadir/cfc_cross_sections/CFC-12_absorption_cross_sections.csv \
+  -CCl4 $datadir/cfc_cross_sections/CCl4_absorption_cross_sections.csv \
+  -N2-N2 $datadir/collision_induced_absorption/N2-N2.csv \
+  -O2-N2 $datadir/collision_induced_absorption/O2-N2.csv \
+  -O2-O2 $datadir/collision_induced_absorption/O2-O2.csv \
+  -o "output.circ-case${i}.nc" \
+  -s 2stream \
+  -clear \
+  -clean \
+  -w-lw 1. -W-lw 3250. -r-lw 0.1
+done

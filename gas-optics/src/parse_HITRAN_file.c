@@ -376,7 +376,7 @@ int parse_hitran_file(LineParams_t * const line_params, char const * const filep
     fp_t const *en = lp.en;
     fp_t const *vnn = lp.vnn;
     uint64_t i;
-#pragma omp parallel for default(none) private(i) shared(snn, iso, en, vnn, n)
+#pragma omp parallel for default(shared) private(i)
     for (i=0; i<n; ++i)
     {
         snn[i] *= Q(mol_id, tref, iso[i])/(EXP(c2*en[i]/tref)*

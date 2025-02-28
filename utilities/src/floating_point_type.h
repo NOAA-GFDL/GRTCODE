@@ -22,8 +22,10 @@
 
 #ifdef SINGLE_PRECISION
 typedef float fp_t;
+#define epsilon_ 1.e-7
 #else
 typedef double fp_t;
+#define epsilon_ 1.e-12
 #endif
 
 

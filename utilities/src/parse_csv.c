@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "debug.h"
+#include "parse_csv.h"
 #include "return_codes.h"
 #include "utilities.h"
 

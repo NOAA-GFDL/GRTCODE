@@ -4,9 +4,8 @@ declare datadir="../../grtcode-data"
 
 
 for i in `seq 1 7`; do
-../src/circ "$datadir/circ/circ-case${i}.nc" \
-  $datadir/HITRAN_files/hitran2016.par $datadir/solar_flux/solar_flux.csv -v \
-  -H2O -CO2 -O3 -N2O -CH4 -CO -O2 \
+../src/circ $datadir/HITRAN_files/hitran2016.par $datadir/solar_flux/solar_flux.csv -v \
+  $datadir/circ/circ-case${i}.nc -H2O -CO2 -O3 -N2O -CH4 -CO -O2 \
   -h2o-ctm $datadir/water_vapor_continuum -o3-ctm $datadir/ozone_continuum/ozone_continuum.csv \
   -CFC-11 $datadir/cfc_cross_sections/CFC-11_absorption_cross_sections.csv \
   -CFC-12 $datadir/cfc_cross_sections/CFC-12_absorption_cross_sections.csv \
@@ -14,5 +13,5 @@ for i in `seq 1 7`; do
   -N2-N2 $datadir/collision_induced_absorption/N2-N2.csv \
   -O2-N2 $datadir/collision_induced_absorption/O2-N2.csv \
   -O2-O2 $datadir/collision_induced_absorption/O2-O2.csv \
-  -o "output.circ-case${i}.nc" -r 1. -s 2stream
+  -o "output.circ-case${i}.nc" -s 2stream
 done

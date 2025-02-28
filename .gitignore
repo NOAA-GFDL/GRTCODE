@@ -1,5 +1,4 @@
 *.o
-Makefile
 Makefile.in
 /ar-lib
 /mdate-sh
@@ -35,13 +34,15 @@ m4/ltoptions.m4
 m4/ltsugar.m4
 m4/ltversion.m4
 m4/lt~obsolete.m4
-rfmip-irf/src/rfmip_irf
+rfmip-irf/src/rfmip-irf
 rfmip-irf/src/*.nc
 rfmip-irf/test/*.nc
 rfmip-irf/test/check_results
 circ/src/circ
 circ/test/*.nc
 circ/test/check_results
+era5/src/era5
+era5/test/*.nc
 longwave/test/test_longwave
 shortwave/test/test_shortwave
 *.mod

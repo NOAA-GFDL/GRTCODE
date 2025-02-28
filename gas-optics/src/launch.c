@@ -83,6 +83,20 @@ int launch(GasOptics_t * const gas_optics, fp_t *p, fp_t *t, fp_t * const tau)
         char const *mesg = "Calculating spectra for %s.";
         log_info(mesg, mol->name);
 
+/*
+        fp_t const plower = 0.;
+        fp_t const pupper = 2.e4;
+*/
+        fp_t const * pedestal_lower_bound = NULL;
+        fp_t const * pedestal_upper_bound = NULL;
+/*
+        if (mol->id == H2O)
+        {
+            pedestal_lower_bound = &plower;
+            pedestal_upper_bound = &pupper;
+        }
+*/
+
         /*Calculate the integrated average layer partial pressure.*/
         fp_t const *xp = &(gas_optics->x[index*gas_optics->num_levels]);
         glaunch(calc_partial_pressures_and_number_densities, gas_optics->num_layers,
@@ -140,7 +154,8 @@ int launch(GasOptics_t * const gas_optics, fp_t *p, fp_t *t, fp_t * const tau)
                 glaunch(calc_optical_depth_line_sample, mol->line_params.num_lines,
                         gas_optics->device, mol->line_params.num_lines, gas_optics->num_layers,
                         gas_optics->linecenter, gas_optics->snn, gas_optics->gamma,
-                        gas_optics->alpha, gas_optics->ns, gas_optics->bins, gas_optics->tau);
+                        gas_optics->alpha, gas_optics->ns, gas_optics->bins,
+                        gas_optics->tau, pedestal_lower_bound, pedestal_upper_bound);
                 break;
         }
 

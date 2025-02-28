@@ -52,12 +52,12 @@ int calc_line_strengths(uint64_t const num_lines, /**< Number of molecular lines
                         int const num_layers, /**< Number of atmospheric layers.*/
                         int const num_iso, /**< Number of molecular isotopologues.*/
                         int const * const iso, /**< Isotopologue id (line).*/
-                        fp_t const * const s0, /**< Uncorrected line strengths [cm-1] (line).*/
+                        fp_t const * const s0, /**< Uncorrected line strengths [cm] (line).*/
                         fp_t const * const vnn, /**< Line center position [cm-1] (line).*/
                         fp_t const * const en, /**< Lower state energies [cm-1] (line).*/
                         fp_t const * const t, /**< Temperature [K] (layer).*/
                         fp_t const * const q, /**< Total partition function (layer, isotopologue).*/
-                        fp_t * const snn /**< Temperature-corrected line strengths [cm-1] (layer, line).*/
+                        fp_t * const snn /**< Temperature-corrected line strengths [cm] (layer, line).*/
                        );
 
 
@@ -102,7 +102,7 @@ int sort_lines(uint64_t const num_lines, /**< Number of molecular lines.*/
 int calc_optical_depth_bin_sweep(uint64_t const num_lines, /**< Number of molecular lines.*/
                                  int const num_layers, /**< Number of atmospheric layers.*/
                                  fp_t * const vnn, /**< Pressure-shifted line center positions [cm-1] (layer, line).*/
-                                 fp_t * const snn, /**< Line strength [cm-1] (layer, line).*/
+                                 fp_t * const snn, /**< Line strength [cm] (layer, line).*/
                                  fp_t * const gamma, /**< Lorentz halfwidth [cm-1] (layer, line).*/
                                  fp_t * const alpha, /**< Doppler halfwidth [cm-1] (layer, line).*/
                                  fp_t const * const n, /**< Integrated number density [cm-2] (layer).*/
@@ -116,7 +116,7 @@ int calc_optical_depth_bin_sweep(uint64_t const num_lines, /**< Number of molecu
 int calc_optical_depth_line_sweep(uint64_t const num_lines, /**< Number of molecular lines.*/
                                   int const num_layers, /**< Number of atmospheric layers.*/
                                   fp_t * const vnn, /**< Pressure-shifted line center positions [cm-1] (layer, line).*/
-                                  fp_t * const snn, /**< Line strength [cm-1] (layer, line).*/
+                                  fp_t * const snn, /**< Line strength [cm] (layer, line).*/
                                   fp_t * const gamma, /**< Lorentz halfwidth [cm-1] (layer, line).*/
                                   fp_t * const alpha, /**< Doppler halfwidth [cm-1] (layer, line).*/
                                   fp_t const * const n, /**< Integrated number density [cm-2] (layer).*/
@@ -130,12 +130,14 @@ int calc_optical_depth_line_sweep(uint64_t const num_lines, /**< Number of molec
 int calc_optical_depth_line_sample(uint64_t const num_lines, /**< Number of molecular lines.*/
                                    int const num_layers, /**< Number of atmospheric layers.*/
                                    fp_t * const vnn, /**< Pressure-shifted line center positions [cm-1] (layer, line).*/
-                                   fp_t * const snn, /**< Line strength [cm-1] (layer, line).*/
+                                   fp_t * const snn, /**< Line strength [cm] (layer, line).*/
                                    fp_t * const gamma, /**< Lorentz halfwidth [cm-1] (layer, line).*/
                                    fp_t * const alpha, /**< Doppler halfwidth [cm-1] (layer, line).*/
                                    fp_t const * const n, /**< Integrated number density [cm-2] (layer).*/
                                    SpectralBins_t const bins, /**< Spectral bins.*/
-                                   fp_t * const tau /**< Optical depth (layer, wavenumber).*/
+                                   fp_t * const tau, /**< Optical depth (layer, wavenumber).*/
+                                   fp_t const * pedestal_lower_bound, /**< Pedestal lower bound [cm-1].*/
+                                   fp_t const * pedestal_upper_bound /**< Pedestal upper bound [cm-1].*/
                                   );
 
 

@@ -3,7 +3,12 @@
 #ifndef ARGPARSE_H_
 #define ARGPARSE_H_
 
-#include "extern.h"
+
+#ifdef __cplusplus
+#define EXTERNC extern "C"
+#else
+#define EXTERNC
+#endif
 
 
 /** @brief Maximum allowed description length.*/
@@ -50,38 +55,38 @@ typedef struct Parser
 
 /** @brief Create a parser and add help option.
     @return Parser object.*/
-EXTERN Parser_t create_parser(int const argc, /**< Number of arguments.*/
-                              char **argv, /**< Array of arguments.*/
-                              char const * const description /**< Description.*/
-                             );
+EXTERNC Parser_t create_parser(int const argc, /**< Number of arguments.*/
+                               char **argv, /**< Array of arguments.*/
+                               char const * const description /**< Description.*/
+                              );
 
 
 /** @brief Add argument to parser.*/
-EXTERN void add_argument(Parser_t * const parser, /**< Parser.*/
-                         char const * const name, /**< Short name.*/
-                         char const * const longname, /**< Long name.*/
-                         char const * const description, /**< Description.*/
-                         int const * const requires_value /**< Flag telling to look for value.*/
-                        );
+EXTERNC void add_argument(Parser_t * const parser, /**< Parser.*/
+                          char const * const name, /**< Short name.*/
+                          char const * const longname, /**< Long name.*/
+                          char const * const description, /**< Description.*/
+                          int const * const requires_value /**< Flag telling to look for value.*/
+                         );
 
 
 /** @brief Parse arguments.*/
-EXTERN void parse_args(Parser_t const p /**< Parser.*/
-                      );
+EXTERNC void parse_args(Parser_t const p /**< Parser.*/
+                       );
 
 
 /**  @brief Get the value of an argument.
      @return 1 if argument was found, else 0.*/
-EXTERN int get_argument(Parser_t const p, /**< Parser.*/
-                        char const * const name, /**< Argument name.*/
-                        char buffer[valuelen] /**< Buffer to return argument value in.*/
-                       );
+EXTERNC int get_argument(Parser_t const p, /**< Parser.*/
+                         char const * const name, /**< Argument name.*/
+                         char buffer[valuelen] /**< Buffer to return argument value in.*/
+                        );
 
 
 /** @brief Free memory reserved by parser.*/
-EXTERN void destroy_parser(Parser_t * const p /**< Parser.*/
-                          );
+EXTERNC void destroy_parser(Parser_t * const p /**< Parser.*/
+                           );
 
 
-#undef EXTERN
+#undef EXTERNC
 #endif

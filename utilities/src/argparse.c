@@ -3,14 +3,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include "argparse.h"
-#include "extern.h"
 
 
-/*Check for whitespace and starting dashes in an argument name.*/
-static void check_name(char const * const name, /*Argument name.*/
-                       int * const one_dash, /*Flag telling if name starts with -.*/
-                       int * const two_dash, /*Flag telling if name starts with --.*/
-                       int const max_len /*Maximum allowed name length.*/
+#ifdef __cplusplus
+#define EXTERNC extern "C"
+#else
+#define EXTERNC
+#endif
+
+
+/** @brief Check for whitespace and starting dashes in an argument name.*/
+static void check_name(char const * const name, /**< Argument name.*/
+                       int * const one_dash, /**< Flag telling if name starts with -.*/
+                       int * const two_dash, /**< Flag telling if name starts with --.*/
+                       int const max_len /**< Maximum allowed name length.*/
                       )
 {
     *one_dash = 0;
@@ -42,10 +48,10 @@ static void check_name(char const * const name, /*Argument name.*/
 }
 
 
-/*Get the basename of a path.*/
-static char * basename(char *path, /*File path.*/
-                       char seperator /*Path seperator.*/
-                      )
+/** @brief Get the basename of a path.*/
+static char * path_basename(char *path, /**< File path.*/
+                            char seperator /**< Path seperator.*/
+                           )
 {
     size_t index = 0;
     size_t i;
@@ -60,11 +66,11 @@ static char * basename(char *path, /*File path.*/
 }
 
 
-/*Print usage message.*/
-static void print_usage(Parser_t const p /*Parser.*/
+/** @brief Print usage message.*/
+static void print_usage(Parser_t const p /**< Parser.*/
                        )
 {
-    printf("\033[3mUsage: %s ", basename(p.argv[0], '/'));
+    printf("\033[3mUsage: %s ", path_basename(p.argv[0], '/'));
     Argument_t *a = p.args;
     while (a != NULL)
     {
@@ -87,12 +93,12 @@ static void print_usage(Parser_t const p /*Parser.*/
 }
 
 
-/*Print help message.*/
-static void print_help(Parser_t const p /*Parser.*/
+/** @brief Print help message.*/
+static void print_help(Parser_t const p /**< Parser.*/
                       )
 {
     print_usage(p);
-    printf("\033[3m\n%s - %s\n", basename(p.argv[0], '/'), p.description);
+    printf("\033[3m\n%s - %s\n", path_basename(p.argv[0], '/'), p.description);
     Argument_t *a = p.args;
     if (p.num_pos_args > 0)
     {
@@ -151,7 +157,7 @@ static void print_help(Parser_t const p /*Parser.*/
 
 
 /*Create a parser and add help option.*/
-EXTERN Parser_t create_parser(int const argc, char **argv, char const * const description)
+EXTERNC Parser_t create_parser(int const argc, char **argv, char const * const description)
 {
     Parser_t p;
     p.argc = argc;
@@ -173,9 +179,9 @@ EXTERN Parser_t create_parser(int const argc, char **argv, char const * const de
 
 
 /*Add argument to parser.*/
-EXTERN void add_argument(Parser_t * const parser, char const * const name,
-                         char const * const longname, char const * const description,
-                         int const * const requires_value)
+EXTERNC void add_argument(Parser_t * const parser, char const * const name,
+                          char const * const longname, char const * const description,
+                          int const * const requires_value)
 {
     Argument_t *arg = (Argument_t *)malloc(sizeof(*arg));
     arg->head = NULL;
@@ -248,7 +254,7 @@ EXTERN void add_argument(Parser_t * const parser, char const * const name,
 
 
 /*Parse arguments.*/
-EXTERN void parse_args(Parser_t const p)
+EXTERNC void parse_args(Parser_t const p)
 {
     int num_pos_args = 0;
     int i;
@@ -329,7 +335,7 @@ EXTERN void parse_args(Parser_t const p)
 
 
 /*Get the value of an argument.*/
-EXTERN int get_argument(Parser_t const p, char const * const name, char buffer[valuelen])
+EXTERNC int get_argument(Parser_t const p, char const * const name, char buffer[valuelen])
 {
     int result = 0;
     Argument_t *a = p.args;
@@ -352,7 +358,7 @@ EXTERN int get_argument(Parser_t const p, char const * const name, char buffer[v
 
 
 /*Free memory reserved by parser.*/
-EXTERN void destroy_parser(Parser_t * const p)
+EXTERNC void destroy_parser(Parser_t * const p)
 {
     Argument_t *a = p->args;
     Argument_t *b ;

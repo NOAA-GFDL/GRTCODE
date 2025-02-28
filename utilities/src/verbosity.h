@@ -21,6 +21,9 @@
 #define VERBOSITY_H_
 
 
+#include "extern.h"
+
+
 /** @brief Verbosity levels.*/
 enum grtcode_verbosity
 {

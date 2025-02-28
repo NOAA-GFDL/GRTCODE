@@ -64,9 +64,7 @@ EXTERN int calculate_lw_fluxes(Longwave_t * const lw, /**< Longwave object.*/
                                fp_t * const T_levels, /**< Temperature [K] (level).*/
                                fp_t * const emis, /**< Surface emissivity (wavenumber).*/
                                fp_t * const flux_up, /**< Upward flux [W cm m-2] (level, wavenumber).*/
-                               fp_t * const flux_down, /**< Downward flux [W cm m-2] (level, wavenumber).*/
-                               double const * const x, /**< Spectral lower bound [cm-1].*/
-                               double const * const X /**< Spectral upper bound [cm-1].*/
+                               fp_t * const flux_down /**< Downward flux [W cm m-2] (level, wavenumber).*/
                               );
 
 

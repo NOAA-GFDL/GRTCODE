@@ -130,7 +130,7 @@ static int add_optics_objects(uint64_t const n, int const num_optics, fp_t const
                               fp_t * const g_out, fp_t * const omega_out, fp_t * const tau_out)
 {
     uint64_t i;
-#pragma omp parallel for default(none) private(i)
+#pragma omp parallel for default(shared) private(i)
     for (i=0; i<n; ++i)
     {
         int j;
@@ -309,7 +309,7 @@ static int sample_optics_object(uint64_t const n, uint64_t const factor,
                                 fp_t const * const g_in)
 {
     uint64_t i;
-#pragma omp parallel for default(none) private(i)
+#pragma omp parallel for default(shared) private(i)
     for (i=0; i<n; ++i)
     {
         uint64_t offset = i*factor;

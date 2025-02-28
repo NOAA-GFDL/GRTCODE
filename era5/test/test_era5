@@ -1,0 +1,42 @@
+#!/bin/bash -ex
+export OMP_NUM_THREADS="32"
+export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$PWD/../../dependencies/clouds-lib/.libs"
+declare datadir="../../grtcode-data"
+declare eradatadir="/lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/era5-prp"
+
+declare basename="output.era5.nc"
+declare year="2010"
+declare month="9"
+
+for i in `seq 1 6`; do
+  x=$((($i - 1)*24))
+  X=$(($x + 23))
+  time srun -n 1 --cpus-per-task="$OMP_NUM_THREADS" ../src/era5 \
+    $datadir/HITRAN_files/hitran2016.par \
+    $datadir/solar_flux/solar_flux.csv -v \
+    $eradatadir/2010-era5.nc \
+    /lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/green-house-gases.nc \
+    -beta-path /lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/clouds/beta_distribution.nc \
+    -ice-path /lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/clouds/chou_suarez.nc \
+    -liquid-path /lustre/f2/pdata/gfdl/gfdl_M/Raymond.Menzel/clouds/hu_stamnes.nc \
+    -H2O -O3 -CH4 -CO2 -N2O -year $year \
+    -h2o-ctm $datadir/water_vapor_continuum \
+    -o3-ctm $datadir/ozone_continuum/ozone_continuum.csv \
+    -CFC-11 $datadir/cfc_cross_sections/CFC-11_absorption_cross_sections.csv \
+    -CFC-12 $datadir/cfc_cross_sections/CFC-12_absorption_cross_sections.csv \
+    -CFC-113 $datadir/cfc_cross_sections/CFC-113_absorption_cross_sections.csv \
+    -HCFC-22 $datadir/cfc_cross_sections/HCFC-22_absorption_cross_sections.csv \
+    -N2-N2 $datadir/collision_induced_absorption/N2-N2.csv \
+    -O2-N2 $datadir/collision_induced_absorption/O2-N2.csv \
+    -O2-O2 $datadir/collision_induced_absorption/O2-O2.csv \
+    -o "${basename}.segment${i}" \
+    -w-lw 1 -W-lw 3000 -r-lw 1. \
+    -x $x -X $X -t $month -T $month &
+#   -w-lw 1 -W-lw 3000 -r-lw 1.0 \
+#   -w-sw 1 -W-sw 2 -r-sw 1 -s 2stream -clean -clear \
+done
+
+wait
+
+source env/bin/activate
+python3 combine-segments.py $basename ${year}-${month}-globe.nc

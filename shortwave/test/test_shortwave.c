@@ -1,27 +1,13 @@
-/* GRTCODE is a GPU-able Radiative Transfer Code
- * Copyright (C) 2016  Garrett Wright
- * Modified in 2019 by Raymond Menzel
- *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License as
- * published by the Free Software Foundation; version 2.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
-
 #include <stdint.h>
 #include <stdlib.h>
 #include "debug.h"
 #include "grtcode_config.h"
 #include "grtcode_utilities.h"
 #include "shortwave.h"
+#include "test_harness.h"
+
+
+#define NUM_TESTS 4
 
 
 typedef struct Atmosphere
@@ -114,7 +100,7 @@ static int breakdown(Optics_t * const optics, Atmosphere_t * const atmos)
 
 
 /*Do a simple run.*/
-static int simple_test(void)
+int test_simple()
 {
     SpectralGrid_t grid;
     Optics_t optics;
@@ -133,7 +119,7 @@ static int simple_test(void)
 
 
 /*Very optically thick layers.*/
-static int optically_thick(void)
+int test_optically_thick()
 {
     SpectralGrid_t grid;
     Optics_t optics;
@@ -162,7 +148,7 @@ static int optically_thick(void)
 
 
 /*Very optically thin layers.*/
-static int optically_thin(void)
+int test_optically_thin()
 {
     SpectralGrid_t grid;
     Optics_t optics;
@@ -191,7 +177,7 @@ static int optically_thin(void)
 
 
 /*Strong absorption.*/
-static int strong_absorption(void)
+int test_strong_absorption()
 {
     SpectralGrid_t grid;
     Optics_t optics;
@@ -228,45 +214,29 @@ static int strong_absorption(void)
 }
 
 
-typedef struct Test
-{
-    int (*f)(void);
-    char *name;
-    int returncode;
-} Test_t;
-
-
 int main(void)
 {
-    printf("Running shortwave tests.\n");
-    int num_tests = 4;
-    Test_t tests[32] = {
-        {simple_test, "simple_test", GRTCODE_SUCCESS},
-        {optically_thick, "optically_thick", GRTCODE_SUCCESS},
-        {optically_thin, "optically_thin", GRTCODE_SUCCESS},
-        {strong_absorption, "strong_absorption", GRTCODE_SUCCESS}};
-    int passed = 0;
-    int i;
-    for (i=0; i<num_tests; ++i)
-    {
-        printf("Running test %s:", tests[i].name);
-        if (tests[i].f() == tests[i].returncode)
+    Test_t tests[NUM_TESTS] = {
         {
-            printf(" passed.\n");
-            passed++;
-        }
-        else
+            test_simple,
+            "test_simple",
+            GRTCODE_SUCCESS
+        },
         {
-            printf(" failed.\n");
+            test_optically_thick,
+            "test_optically_thick",
+            GRTCODE_SUCCESS
+        },
+        {
+            test_optically_thin,
+            "test_optically_thin",
+            GRTCODE_SUCCESS
+        },
+        {
+            test_strong_absorption,
+            "test_strong_absorption",
+            GRTCODE_SUCCESS
         }
-    }
-    printf("%d/%d tests passed.\n", passed, num_tests);
-    if (passed == num_tests)
-    {
-        return 0;
-    }
-    else
-    {
-        return 1;
-    }
+    };
+    return test_harness("test_shortwave", NUM_TESTS, tests);
 }

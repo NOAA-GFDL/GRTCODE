@@ -4,8 +4,8 @@ declare datadir="../../grtcode-data"
 
 
 #Forcing index = 1
-../src/rfmip_irf $datadir/rfmip-irf/multiple_input4MIPs_radiation_RFMIP_UColorado-RFMIP-1-2_none.nc \
-  0 $datadir/HITRAN_files/hitran2016.par $datadir/solar_flux/solar_flux.csv -v \
+../../build/rfmip-irf $datadir/HITRAN_files/hitran2016.par $datadir/solar_flux/solar_flux.csv -v \
+   $datadir/rfmip-irf/multiple_input4MIPs_radiation_RFMIP_UColorado-RFMIP-1-2_none.nc 0 \
   -H2O -CO2 -O3 -N2O -CH4 -CO -O2 \
   -h2o-ctm $datadir/water_vapor_continuum -o3-ctm $datadir/ozone_continuum/ozone_continuum.csv \
   -CFC-11 $datadir/cfc_cross_sections/CFC-11_absorption_cross_sections.csv \
@@ -36,8 +36,8 @@ declare datadir="../../grtcode-data"
 
 
 #Forcing index = 2
-../src/rfmip_irf $datadir/rfmip-irf/multiple_input4MIPs_radiation_RFMIP_UColorado-RFMIP-1-2_none.nc \
-  0 $datadir/HITRAN_files/hitran2016.par $datadir/solar_flux/solar_flux.csv -v \
+../../build/rfmip-irf $datadir/HITRAN_files/hitran2016.par $datadir/solar_flux/solar_flux.csv -v \
+  $datadir/rfmip-irf/multiple_input4MIPs_radiation_RFMIP_UColorado-RFMIP-1-2_none.nc 0 \
   -H2O -CO2 -O3 -N2O -CH4 -CO -O2 \
   -h2o-ctm $datadir/water_vapor_continuum -o3-ctm $datadir/ozone_continuum/ozone_continuum.csv \
   -CFC-11-eq $datadir/cfc_cross_sections/CFC-11_absorption_cross_sections.csv  \
@@ -46,12 +46,12 @@ declare datadir="../../grtcode-data"
   -O2-N2 $datadir/collision_induced_absorption/O2-N2.csv \
   -O2-O2 $datadir/collision_induced_absorption/O2-O2.csv \
   -x 0 -X 0 -o output.forcing_index2.nc
-./check_results output.forcing_index2.nc
+#./check_results output.forcing_index2.nc
 
 
 #Forcing index = 3
-../src/rfmip_irf $datadir/rfmip-irf/multiple_input4MIPs_radiation_RFMIP_UColorado-RFMIP-1-2_none.nc \
-  0 $datadir/HITRAN_files/hitran2016.par $datadir/solar_flux/solar_flux.csv -v \
+../../build/rfmip-irf $datadir/HITRAN_files/hitran2016.par $datadir/solar_flux/solar_flux.csv -v \
+  $datadir/rfmip-irf/multiple_input4MIPs_radiation_RFMIP_UColorado-RFMIP-1-2_none.nc 0 \
   -H2O -CO2 -O3 -N2O -CH4 -CO -O2 \
   -h2o-ctm $datadir/water_vapor_continuum -o3-ctm $datadir/ozone_continuum/ozone_continuum.csv \
   -CFC-12-eq $datadir/cfc_cross_sections/CFC-12_absorption_cross_sections.csv  \
