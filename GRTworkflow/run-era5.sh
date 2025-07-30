@@ -6,7 +6,7 @@ current_time="$( date +%Y-%m-%d-%H:%M:%S )"
 grtcode_repository="$workflow_home/../grtcode"
 
 # Variables needed to set reasonable defaults.
-grtcode_input_data="$workflow_home/../grtcode/grtcode-data"
+grtcode_input_data="$workflow_home/../grtcode-data"
 
 # Default arguments.
 account="$( sacctmgr --noheader list user $USER format=DefaultAccount%6 )"
