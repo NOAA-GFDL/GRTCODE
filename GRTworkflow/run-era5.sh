@@ -81,7 +81,7 @@ while [[ $# -gt 0 ]]; do
     ;;
   esac
 done
-if [ $counter -ne 1 ]; then
+if [ $counter -lt 1 ]; then
   echo "${counter}"
   echo "Error: missing required argument."
   echo "Usage: $argument_list"
