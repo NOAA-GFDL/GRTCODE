@@ -2,7 +2,10 @@
 
 # ============================================================
 # Script to run ERA5 radiative transfer experiments for GHGs
-# ============================================================
+# Get the absolute path to this script and the run script
+script_dir="$(dirname "$(readlink -f "$0")")"
+runscript="${script_dir}/run-era5.sh"
+
 # Set working directory (where your Github repository resides)
 workdir="/ncrc/home1/Jing.Feng/scripts/grtcode"
 
@@ -43,7 +46,7 @@ runscript="${script_dir}/run-era5.sh"
 # Loop over years and experiments
 # ------------------------------------------------------------
 
-for year in $(seq 1979 1979); do
+for year in $(seq 2001 2024); do
   for exp in "${exps[@]}"; do
     name_tag="${exp}"  # Unique output tag for this configuration
 # ------------------------------------------------------------
