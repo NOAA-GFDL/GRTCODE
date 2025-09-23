@@ -874,7 +874,7 @@ void create_flux_file(Output_t **output, char const * const filepath,
     add_variable(file, "ch4_vmr", 4, dimensions, "methane_vmr", "ppmv", CH4_VMR);
     add_variable(file, "co2_vmr", 4, dimensions, "carbon_dioxide_vmr", "ppmv", CO2_VMR);
     add_variable(file, "n2o_vmr", 4, dimensions, "nitrous_oxide_vmr", "ppmv", N2O_VMR);
-    int dims_ts[3] = {dimensions[0], dimensions[1], dimensions[2]};
+    int dims_ts[3] = {dimensions[0], dimensions[2], dimensions[3]};
     add_variable(file, "ts", 3, dims_ts, "surface_temperature", "K", SURFACE_TEMPERATURE);
     dimensions[1] = LAYER; dimensions[2] = LATITUDE; dimensions[3] = LONGITUDE;
     add_variable(file, "t_layer", 4, dimensions, "air_layer_temperature", "mb", LAYER_TEMPERATURE);
@@ -1006,7 +1006,7 @@ void write_output(Output_t * output, Variables_t id, fp_t const * data, int time
         case SURFACE_TEMPERATURE:
             start[0] = time; start[1] = lat; start[2] = lon; start[3] = 0;
             count[0] = 1; count[1] = 1; count[2] = 1; count[3] = 1;
-            break;
+	    break;
         case RLDSAF:
         case RLUSAF:
         case RLUTAF:
