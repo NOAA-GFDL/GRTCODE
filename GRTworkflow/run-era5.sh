@@ -54,7 +54,7 @@ while [[ $# -gt 0 ]]; do
     -p)
       shift
       if [ "$#" -gt 0 ]; then
-        grtcode_repository="$1"
+        grtcode_repository="$(cd "$1" && pwd)"
         shift
       else
         echo "Error: please specify the path to the grtcode repository."
