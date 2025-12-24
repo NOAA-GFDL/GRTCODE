@@ -73,7 +73,7 @@ vim ./GRTworkflow/submit.sh
 ```bash
 for year in $(seq 2010 2010); do
     for exp in "${exps[@]}"; do
-        cmd="$runscript -p /ncrc/home1/Jing.Feng/scripts/grtcode $year $era5_data $data_dir/${exp}.nc ${exp}_noh2o"
+        cmd="$runscript -p /ncrc/home1/Jing.Feng/scripts/grtcode $year $era5_data $data_dir/${exp}.nc ${exp}"
         echo "Running: $cmd"
         eval "$cmd"
     done
