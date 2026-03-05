@@ -14,7 +14,7 @@ void construct_beta(IncompleteBeta_t * self, char const * path)
     read_variable(ncid, "q", (void **)&(self->q), NC_INT, NULL, NULL);
     read_variable(ncid, "x", (void **)&(self->x), NC_DOUBLE, NULL, NULL);
     read_variable(ncid, "data", (void **)&(self->y), NC_DOUBLE, NULL, NULL);
-    read_variable(ncid, "data", (void **)&(self->y_inverse), NC_DOUBLE, NULL, NULL);
+    read_variable(ncid, "inverse", (void **)&(self->y_inverse), NC_DOUBLE, NULL, NULL);
     close_dataset(ncid);
     return;
 }
@@ -36,9 +36,12 @@ void destruct_beta(IncompleteBeta_t * self)
 static double interp(int const num_x, double const * x, double const * y, double const newx)
 {
     int i;
-    for (i=1; i<num_x - 1; ++i)
+    for (i=1; i<(num_x - 1); ++i)
     {
-        if (x[i] > newx) break;
+        if (x[i] > newx)
+        {
+            break;
+        }
     }
     double const m = (y[i] - y[i-1])/(x[i] - x[i-1]);
     double const b = y[i] - m*x[i];

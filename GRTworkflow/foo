@@ -1,0 +1,32 @@
+#!/bin/bash -ex
+
+# Load the software environment.
+source /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/environment.sh
+
+# Run GRTCODE.
+index=1
+export OMP_NUM_THREADS=128
+    /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/build/era5 \
+    /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/HITRAN_files/hitran2016.par \
+    /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/solar_flux/solar_flux.csv \
+    /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/rfmip-irf/multiple_input4MIPs_radiation_RFMIP_UColorado-RFMIP-1-2_none.nc/1979-era5.nc \
+     \
+    -clean \
+    -year 1979 \
+    -H2O -CO2 -O3 -N2O -CH4 -CO -O2 \
+    -h2o-ctm /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/water_vapor_continuum \
+    -o3-ctm /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/ozone_continuum/ozone_continuum.csv \
+    -CFC-11 /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/cfc_cross_sections/CFC-11_absorption_cross_sections.csv \
+    -CFC-12 /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/cfc_cross_sections/CFC-12_absorption_cross_sections.csv \
+    -N2-N2 /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/collision_induced_absorption/N2-N2.csv \
+    -O2-N2 /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/collision_induced_absorption/O2-N2.csv \
+    -O2-O2 /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/collision_induced_absorption/O2-O2.csv \
+    -x $(( ($index-1)*(144/24) )) \
+    -X $(( ($index*(144/24)-1) )) \
+    -y 0 -Y 0 \
+    -o 1979.era5-fluxes.nc.$index \
+    -beta-path /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/clouds/beta_distribution.nc \
+    -ice-path /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/clouds/fu_liou.nc \
+    -liquid-path /gpfs/f5/gfdl_m/scratch/Raymond.Menzel/grtcode-2025.02/workflow/../grtcode/grtcode-data/clouds/hu_stamnes.nc \
+    -flux-at-level 12 \
+    |& tee 1979.era5.log.$index &

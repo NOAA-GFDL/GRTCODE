@@ -2,7 +2,7 @@
 #define STOCHASTIC_CLOUDS_H
 
 #include "incomplete_beta.h"
-
+#include <stdlib.h>
 
 /* @brief Total water probability density function.*/
 typedef struct TotalWaterPDF

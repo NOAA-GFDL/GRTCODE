@@ -3,7 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include "hu_stamnes.h"
+#include "cloud_optics.h"
 #include "netcdf_utils.h"
 #include "optics_utils.h"
 
@@ -94,15 +94,11 @@ void destruct_liquid_optics(HuStamnes_t * self)
 /* @brief Calculates cloud optics.*/
 void calculate_liquid_optics(HuStamnes_t const self, double const water_concentration,
                              double const equivalent_radius,
-                             OpticalProperties_t * optical_properties)
+                             OpticalProperties_t * optical_properties, int const iband)
 {
-    int i;
-    for (i=0; i<self.num_bands; ++i)
-    {
-        optics(self, water_concentration, equivalent_radius, i,
-               &(optical_properties->extinction_coefficient[i]),
-               &(optical_properties->single_scatter_albedo[i]),
-               &(optical_properties->asymmetry_factor[i]));
-    }
+    optics(self, water_concentration, equivalent_radius, iband,
+               &(optical_properties->extinction_coefficient),
+               &(optical_properties->single_scatter_albedo),
+               &(optical_properties->asymmetry_factor));
     return;
 }

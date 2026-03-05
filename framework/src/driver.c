@@ -473,7 +473,6 @@ static int column_calculation(int label,
 
     if (!atm_column.clear)
     {
-        /*Set up band structure arrays for the clouds library.*/
         fp_t band_centers[grid.n];
         uint64_t j;
         for (j=0; j<grid.n; ++j)
@@ -501,17 +500,19 @@ static int column_calculation(int label,
             flux_down_sum[j] = 0.;
         }
 
-        uint64_t const num_subcolumns = 5;
+        uint64_t const num_subcolumns = 1;
         for (j=0; j<num_subcolumns; ++j)
         {
             /*Cloud optics.*/
-            cloud_optics((int)grid.n, band_centers, band_limits, atm_column.num_layers,
-                         atm_column.cloud_fraction, atm_column.liquid_content,
-                         atm_column.ice_content, atm_column.overlap_parameter, 10.,
-                         atm_column.layer_temperature, optics_liquid_cloud.tau, 
-                         optics_liquid_cloud.omega, optics_liquid_cloud.g,
-                         optics_ice_cloud.tau, optics_ice_cloud.omega,
-                         optics_ice_cloud.g);
+        cloud_optics(band_limits,
+                    (int) grid.n,
+                    atm_column.num_layers,
+                    atm_column.cloud_fraction, atm_column.liquid_content,
+                    atm_column.ice_content, atm_column.overlap_parameter, 
+                    10.0,
+                    atm_column.layer_temperature, 
+                    optics_liquid_cloud.tau, optics_liquid_cloud.omega, optics_liquid_cloud.g,
+                    optics_ice_cloud.tau, optics_ice_cloud.omega, optics_ice_cloud.g);
 
             /*Convert from extinction coefficient to optical depth.*/
             uint64_t k;
@@ -522,8 +523,15 @@ static int column_calculation(int label,
                 {
                     optics_liquid_cloud.tau[k*grid.n + m] *= atm_column.thickness[k];
                     optics_ice_cloud.tau[k*grid.n + m] *= atm_column.thickness[k];
+                if ((atm_column.liquid_content[k] > 0) && (atm_column.cloud_fraction[k] > 0.5) && (m==1000) && k==25)  
+                    { 
+                        fprintf(stdout, "atm_column.liquid_content %e\n", atm_column.liquid_content[k]);  
+                        fprintf(stdout, "optics_liquid_cloud.tau[%d][%d] = %e, element %d\n",
+                                k,m, optics_liquid_cloud.tau[k*grid.n + m], k*grid.n + m);
+		            }
                 }
             }
+
 
             /*Add to gas optics.*/
             optics_array[2] = &optics_liquid_cloud;
@@ -656,7 +664,7 @@ static int driver(Atmosphere_t const atm, /*Atmospheric state.*/
                             " running with clouds.\n");
             return EXIT_FAILURE;
         }
-        initialize_clouds_lib(beta_path, ice_path, liquid_path, NULL);
+        initialize_clouds_lib(beta_path, ice_path, liquid_path);
     }
 
     /*Initialize the solar fluxe object.*/
@@ -753,7 +761,7 @@ static int driver(Atmosphere_t const atm, /*Atmospheric state.*/
         catch(destroy_optics(&optics_lw_ice_cloud));
         catch(destroy_optics(&optics_sw_liquid_cloud));
         catch(destroy_optics(&optics_sw_ice_cloud));
-        initialize_clouds_lib(beta_path, ice_path, liquid_path, NULL);
+        initialize_clouds_lib(beta_path, ice_path, liquid_path);
     }
     catch(destroy_solar_flux(&solar_flux));
     catch(destroy_longwave(&longwave));

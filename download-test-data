@@ -1,2 +1,2 @@
 #!/bin/sh
-wget ftp://ftp2.gfdl.noaa.gov/perm/GFDL_pubrelease/test_data/grtcode-data.tar.gz
+wget https://zenodo.org/records/16423657/files/grtcode-data.zip

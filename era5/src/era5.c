@@ -102,14 +102,12 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
     add_argument(parser, "era5_file", NULL, "Input data file.", NULL);
     add_argument(parser, "ghg_file", NULL, "Greenhouse gase file.", NULL);
     int one = 1;
-    add_argument(parser, "-CFC-11", NULL, "Path to CFC-11 cross sections.", &one);
-    add_argument(parser, "-CFC-12", NULL, "Path to CFC-12 cross sections.", &one);
-    add_argument(parser, "-CFC-113", NULL, "Path to CFC-113 cross sections.", &one);
+    add_argument(parser, "-CFC-12-eq", NULL, "Path to CFC-12 cross sections.", &one);
+    add_argument(parser, "-HFC-134a-eq", NULL, "Path to HFC-134 cross sections.", &one);
     add_argument(parser, "-CH4", NULL, "Include methane.", NULL);
     add_argument(parser, "-clean", NULL, "Run without aerosols.", NULL);
     add_argument(parser, "-clear", NULL, "Run without clouds.", NULL);
     add_argument(parser, "-CO2", NULL, "Include carbon dioxide.", NULL);
-    add_argument(parser, "-HCFC-22", NULL, "Path to HCFC-22 cross sections.", &one);
     add_argument(parser, "-H2O", NULL, "Include water vapor.", NULL);
     add_argument(parser, "-h2o-ctm", NULL, "Directory containing H2O continuum files", &one);
     add_argument(parser, "-N2-N2", NULL, "Path to N2-N2 CIA cross sections.", &one);
@@ -127,6 +125,7 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
     add_argument(parser, "-Y", "--lat-upper-bound", "Ending latitude index.", &one);
     add_argument(parser, "-z", "--level-lower-bound", "Starting level index.", &one);
     add_argument(parser, "-Z", "--level-upper-bound", "Ending level index.", &one);
+    add_argument(parser, "-ghg_start_year", NULL, "Start year of GHG input file.",&one);
     parse_args(*parser);
 
     /*Open the input file.*/
@@ -566,6 +565,16 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
         atm.surface_emissivity[i] = 1.;
     }
 
+    int ghg_start_year;
+    if (get_argument(*parser, "-ghg_start_year", buffer))
+    {
+        ghg_start_year = atoi(buffer);
+    }
+    else
+    {
+        ghg_start_year = 1;
+    }
+
     /*Open the greenhouse gas file.*/
     get_argument(*parser, "ghg_file", buffer);
     nc_catch(nc_open(buffer, NC_NOWRITE, &ncid));
@@ -585,7 +594,7 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
             alloc(atm.ppmv[atm.num_molecules], atm.num_times*atm.num_columns*atm.num_levels, fp_t *);
             fp_t *ppmv = atm.ppmv[atm.num_molecules];
             nc_catch(nc_inq_varid(ncid, ghg_molecules[i].name, &varid));
-            start[0] = year - 1; start[1] = 0; start[2] = 0; start[3] = 0;
+            start[0] = year - ghg_start_year; start[1] = 0; start[2] = 0; start[3] = 0;
             count[0] = 1; count[1] = 1; count[2] = 1; count[3] = 1;
             fp_t ab_in;
             get_var(ncid, varid, start, count, &ab_in);
@@ -602,11 +611,9 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
 
     /*CFC abundances.*/
     atm.num_cfcs = 0;
-    int const num_cfcs = 4;
-    struct MoleculeMeta cfcs[num_cfcs] = {{CFC11, "-CFC-11", "f11", 0.},
-                                          {CFC12, "-CFC-12", "f12", 0.},
-                                          {HCFC22, "-HCFC-22", "f22", 0.},
-                                          {CFC113, "-CFC-113", "f113", 0.}};
+    int const num_cfcs = 2;
+    struct MoleculeMeta cfcs[num_cfcs] = {{HFC134a, "-HFC-134a-eq", "hfc134aeq", 0.},
+                                          {CFC12, "-CFC-12-eq", "cfc12eq", 0.}};
     alloc(abundance, atm.num_times*atm.num_levels*nlat*nlon, fp_t *);
     alloc(atm.cfc, num_cfcs, Cfc_t *);
     alloc(atm.cfc_ppmv, num_cfcs, fp_t **);
@@ -617,7 +624,7 @@ Atmosphere_t create_atmosphere(Parser_t *parser)
             atm.cfc[atm.num_cfcs].id = cfcs[i].id;
             alloc(atm.cfc_ppmv[atm.num_cfcs], atm.num_times*atm.num_levels*atm.num_columns, fp_t *);
             nc_catch(nc_inq_varid(ncid, cfcs[i].name, &varid));
-            start[0] = year - 1; start[1] = 0; start[2] = 0; start[3] = 0;
+            start[0] = year - ghg_start_year; start[1] = 0; start[2] = 0; start[3] = 0;
             count[0] = 1; count[1] = 1; count[2] = 1; count[3] = 1;
             fp_t ab_in;
             get_var(ncid, varid, start, count, &ab_in);
@@ -867,8 +874,8 @@ void create_flux_file(Output_t **output, char const * const filepath,
     add_variable(file, "ch4_vmr", 4, dimensions, "methane_vmr", "ppmv", CH4_VMR);
     add_variable(file, "co2_vmr", 4, dimensions, "carbon_dioxide_vmr", "ppmv", CO2_VMR);
     add_variable(file, "n2o_vmr", 4, dimensions, "nitrous_oxide_vmr", "ppmv", N2O_VMR);
-    dimensions[1] = LATITUDE; dimensions[2] = LONGITUDE;
-    add_variable(file, "ts", 3, dimensions, "surface_temperature", "K", SURFACE_TEMPERATURE);
+    int dims_ts[3] = {dimensions[0], dimensions[2], dimensions[3]};
+    add_variable(file, "ts", 3, dims_ts, "surface_temperature", "K", SURFACE_TEMPERATURE);
     dimensions[1] = LAYER; dimensions[2] = LATITUDE; dimensions[3] = LONGITUDE;
     add_variable(file, "t_layer", 4, dimensions, "air_layer_temperature", "mb", LAYER_TEMPERATURE);
     int num_dimensions = 4;
@@ -999,7 +1006,7 @@ void write_output(Output_t * output, Variables_t id, fp_t const * data, int time
         case SURFACE_TEMPERATURE:
             start[0] = time; start[1] = lat; start[2] = lon; start[3] = 0;
             count[0] = 1; count[1] = 1; count[2] = 1; count[3] = 1;
-            break;
+	    break;
         case RLDSAF:
         case RLUSAF:
         case RLUTAF:

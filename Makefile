@@ -35,8 +35,7 @@ OBJECTS = build/longwave.o \
           build/verbosity.o
 
 CLOUD_OBJECTS = build/clouds_lib.o \
-                build/hu_stamnes.o \
-                build/ice_cloud_optics.o \
+                build/cloud_pade_optics.o \
                 build/incomplete_beta.o \
                 build/netcdf_utils.o \
                 build/optics_utils.o \
@@ -202,10 +201,7 @@ build/verbosity.o: utilities/src/verbosity.c
 build/clouds_lib.o: clouds/clouds_lib.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
 
-build/hu_stamnes.o: clouds/hu_stamnes.c
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
-
-build/ice_cloud_optics.o: clouds/ice_cloud_optics.c
+build/cloud_pade_optics.o: clouds/cloud_pade_optics.c
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
 
 build/incomplete_beta.o: clouds/incomplete_beta.c

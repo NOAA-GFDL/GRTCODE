@@ -1,6 +1,7 @@
 /* @brief Subcolumn generator for calculating stochastic clouds.*/
 #include <math.h>
-#include <stdlib.h>
+#include <stdlib.h> 
+#include <stdio.h>
 #include "incomplete_beta.h"
 #include "stochastic_clouds.h"
 
@@ -56,6 +57,8 @@ void construct_water_pdf(TotalWaterPDF_t * self, int const p, int const q,
     self->p = p;
     self->q = q;
     self->beta = beta;
+        fprintf(stderr, "p=%d q=%d self.p=%d self.q=%d\n",
+            p, q, self->p, self->q);
     return;
 }
 
@@ -104,6 +107,7 @@ void sample_condensate(TotalWaterPDF_t const self, int const num_layers,
             double const total_condensate = w*(beta_inverse(*(self.beta), self.p, self.q,
                                                             x[i]) - qs);
             double const liquid_fraction = lwc[i]/(lwc[i] + iwc[i]);
+
             ql[i] = total_condensate*liquid_fraction;
             qi[i] = total_condensate*(1. - liquid_fraction);
         }
