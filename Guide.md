@@ -5,7 +5,7 @@ GRTcode is a radiative transfer modeling tool used for IRF (Instantaneous Radiat
 ## Clone the Repository
 
 ```bash
-git clone https://github.com/fengzydy/GRTCODE.git
+git clone https://github.com/NOAA-GFDL/GRTCODE.git
 cd GRTCODE
 ```
 ## Build Instructions (on GAEA)
